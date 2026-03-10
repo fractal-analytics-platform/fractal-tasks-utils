@@ -4,11 +4,11 @@ import logging
 from typing import Annotated, Literal
 
 import numpy as np
+from dask import array as da
 from pydantic import BaseModel, Field
 from skimage.exposure import equalize_adapthist
 from skimage.filters import gaussian, median
 from skimage.morphology import remove_small_objects
-from dask import array as da
 
 logger = logging.getLogger("fractal_tasks_utils.transforms")
 

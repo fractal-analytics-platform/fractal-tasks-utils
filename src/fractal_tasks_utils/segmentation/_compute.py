@@ -2,16 +2,16 @@
 
 import logging
 import time
+from typing import Protocol
 
 import numpy as np
-from ngio import OmeZarrContainer, open_ome_zarr_container
+from ngio import ChannelSelectionModel, OmeZarrContainer, open_ome_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._masked_image import MaskedImage
-from ngio import ChannelSelectionModel
-from typing import Protocol
+
 from fractal_tasks_utils.segmentation._models import (
-    MaskingConfiguration,
     IteratorConfiguration,
+    MaskingConfiguration,
 )
 from fractal_tasks_utils.segmentation._transforms import (
     SegmentationTransformConfig,

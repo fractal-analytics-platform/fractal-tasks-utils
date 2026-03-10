@@ -2,8 +2,8 @@
 
 from fractal_tasks_utils.transforms._transforms import (
     GaussianBlurConfig,
-    MedianFilterConfig,
     HistogramEqualizationConfig,
+    MedianFilterConfig,
     SizeFilterConfig,
 )
 

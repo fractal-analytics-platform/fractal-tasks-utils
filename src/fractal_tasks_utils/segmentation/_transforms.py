@@ -1,12 +1,13 @@
-from typing_extensions import Annotated
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 from fractal_tasks_utils.transforms import (
-    HistogramEqualizationConfig,
     GaussianBlurConfig,
+    HistogramEqualizationConfig,
     MedianFilterConfig,
     SizeFilterConfig,
 )
-from pydantic import BaseModel, Field
 
 PreProcess = Annotated[
     GaussianBlurConfig | MedianFilterConfig | HistogramEqualizationConfig,
