@@ -71,7 +71,6 @@ def setup_iterator(
     segmentation_transform_config: SegmentationTransformConfig | None = None,
     # Other parameters
     overwrite: bool = True,
-    logger: logging.Logger | None = None,
 ) -> SegmentationIterator | MaskedSegmentationIterator:
     """Set up the segmentation iterator based on the provided configuration.
 
@@ -93,11 +92,8 @@ def setup_iterator(
             set, the default "cpsam" model will be used.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
-        logger (logging.Logger | None): Logger for logging messages. If not
-            provided, a default logger will be used.
     """
-    if logger is None:
-        logger = logging.getLogger("fractal_tasks_utils.setup_iterator")
+    logger = logging.getLogger("fractal_tasks_utils.setup_iterator")
     # Use the first of input_paths
     logger.info(f"{zarr_url=}")
 
@@ -118,26 +114,8 @@ def setup_iterator(
     if iterator_configuration is None:
         iterator_configuration = IteratorConfiguration()
 
-    # Determine if we are doing 3D segmentation
-    # If so we need to set the anisotropy factor
-    if ome_zarr.is_3d:
-        axes_order = "czyx"
-        px_z, (px_y, px_x) = label.pixel_size.z, label.pixel_size.yx
-        # Pixelsize must be isotropic in XY (to some extent)
-        perc_diff_xy = abs(px_x - px_y) / max(px_x, px_y)
-        if perc_diff_xy >= 0.01:
-            logger.warning(
-                f"Non-isotropic pixel size in XY detected: px_x={px_x}, px_y={px_y}"
-            )
-        px_xy = (px_x + px_y) / 2.0
-        anisotropy = px_z / px_xy
-        logger.info(
-            "Anisotropy factor calculated: "
-            f"(px_z={px_z} / px_xy={px_xy}) = {anisotropy}"
-        )
-    else:
-        axes_order = "cyx"
-        anisotropy = None
+    # Determine if we are doing 3D segmentation or 2D
+    axes_order = "czyx" if ome_zarr.is_3d else "cyx"
     logger.info(f"Segmenting using {axes_order=}")
 
     if segmentation_transform_config is None:
@@ -200,12 +178,12 @@ def compute_segmentation(
     func: SegmentationFunction,
     func_kwargs: dict,
     iterator: SegmentationIterator | MaskedSegmentationIterator,
-    logger: logging.Logger | None = None,
 ) -> None:
-    """Segment an image using Cellpose with SAM model.
+    """Core computation loop for applying the segmentation function.
 
-    For more information, see:
-        https://github.com/MouseLand/cellpose/tree/main/cellpose
+    This function iterates over the image over the specifed patterns in
+    the iterator, applies the segmentation function to each chunk of the image,
+    and writes the resulting label images back to the OME-Zarr.
 
     Args:
         func: The segmentation function to apply to each chunk of the image.
@@ -213,11 +191,8 @@ def compute_segmentation(
             image as output.
         func_kwargs: Keyword arguments to pass to the segmentation function.
         iterator: An iterator that yields image chunks and corresponding writers.
-        logger (logging.Logger | None): Logger for logging messages. If not
-            provided, a default logger will be used.
     """
-    if logger is None:
-        logger = logging.getLogger("fractal_tasks_utils.compute_segmentation")
+    logger = logging.getLogger("fractal_tasks_utils.compute_segmentation")
 
     # Keep track of the maximum label to ensure unique across iterations
     max_label = 0
@@ -225,7 +200,7 @@ def compute_segmentation(
     # Core processing loop
     #
     logger.info("Starting processing...")
-    run_times = []
+    run_times: list[float] = []
     num_rois = len(iterator.rois)
     logging_step = max(1, num_rois // 10)
     for it, (image_data, writer) in enumerate(iterator.iter_as_numpy()):
