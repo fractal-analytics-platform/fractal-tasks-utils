@@ -30,7 +30,7 @@ def test_join_tables_multiple():
 
 
 def test_join_tables_requires_at_least_one():
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         join_tables([])
 
 
