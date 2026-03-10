@@ -22,8 +22,7 @@ class SegmentationFunction(Protocol):
     def __call__(
         self,
         *,
-        image_data: np.ndarray,
-        **kwargs,
+        input_image: np.ndarray,
     ) -> np.ndarray:
         """Segmentation function protocol definition."""
         ...
@@ -206,7 +205,7 @@ def compute_segmentation(
     for it, (image_data, writer) in enumerate(iterator.iter_as_numpy()):
         start_time = time.time()
         label_img = func(
-            image_data=image_data,
+            input_image=image_data,
             **func_kwargs,
         )
         # Ensure unique labels across different chunks
