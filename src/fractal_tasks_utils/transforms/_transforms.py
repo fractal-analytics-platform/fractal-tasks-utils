@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 
 import numpy as np
 from dask import array as da
+from ngio.io_pipes._ops_axes import AxesOps
+from ngio.io_pipes._ops_slices import SlicingOps
 from pydantic import BaseModel, Field
 from skimage.exposure import equalize_adapthist
 from skimage.filters import gaussian, median
@@ -80,22 +82,30 @@ class GaussianBlurTransform:
         else:
             raise ValueError("Input to Gaussian filter image must be 2D, 3D, or 4D.")
 
-    def get_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def get_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Apply Gaussian blur transformation to a numpy array."""
         return self.apply(array)
 
-    def get_as_dask_transform(self, array: da.Array) -> da.Array:
+    def get_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Apply Gaussian blur transformation to a dask array."""
         # apply the Gaussian filter to each chunk of the dask array using map_blocks
         raise NotImplementedError(
             "Gaussian blur transformation is not implemented for dask arrays yet."
         )
 
-    def set_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def set_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Get Gaussian blur transformation applied before writing a numpy array."""
         return array
 
-    def set_as_dask_transform(self, array: da.Array) -> da.Array:
+    def set_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Get Gaussian blur transformation applied before writing a dask array."""
         return array
 
@@ -159,21 +169,29 @@ class MedianFilterTransform:
         else:
             raise ValueError("Input to median filter image must be 2D, 3D, or 4D.")
 
-    def get_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def get_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Apply Median filter transformation to a numpy array."""
         return self.apply(array)
 
-    def get_as_dask_transform(self, array: da.Array) -> da.Array:
+    def get_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Apply Median filter transformation to a dask array."""
         raise NotImplementedError(
             "Median filter transformation is not implemented for dask arrays yet."
         )
 
-    def set_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def set_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Get Median filter transformation applied before writing a numpy array."""
         return array
 
-    def set_as_dask_transform(self, array: da.Array) -> da.Array:
+    def set_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Get Median filter transformation applied before writing a dask array."""
         return array
 
@@ -263,21 +281,29 @@ class HistogramEqualizationTransform:
             nbins=self.nbins,
         )
 
-    def get_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def get_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Apply histogram equalization transformation to a numpy array."""
         return self.apply(array)
 
-    def get_as_dask_transform(self, array: da.Array) -> da.Array:
+    def get_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Apply histogram equalization transformation to a dask array."""
         raise NotImplementedError(
             "Histogram equalization is not implemented for dask arrays yet."
         )
 
-    def set_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def set_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Get histogram equalization applied before writing a numpy array."""
         return array
 
-    def set_as_dask_transform(self, array: da.Array) -> da.Array:
+    def set_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Get histogram equalization applied before writing a dask array."""
         return array
 
@@ -329,21 +355,29 @@ class SizeFilterTransform:
         """
         return remove_small_objects(labels, max_size=self.min_size)
 
-    def get_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def get_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Apply size filter transformation to a numpy array."""
         return self.apply(array)
 
-    def get_as_dask_transform(self, array: da.Array) -> da.Array:
+    def get_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Apply size filter transformation to a dask array."""
         raise NotImplementedError(
             "Size filter transformation is not implemented for dask arrays yet."
         )
 
-    def set_as_numpy_transform(self, array: np.ndarray) -> np.ndarray:
+    def set_as_numpy_transform(
+        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> np.ndarray:
         """Get size filter transformation applied before writing a numpy array."""
         return self.apply(array)
 
-    def set_as_dask_transform(self, array: da.Array) -> da.Array:
+    def set_as_dask_transform(
+        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
+    ) -> da.Array:
         """Get size filter transformation applied before writing a dask array."""
         raise NotImplementedError(
             "Size filter transformation is not implemented for dask arrays yet."
