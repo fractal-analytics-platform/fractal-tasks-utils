@@ -60,7 +60,7 @@ def load_masked_image(
     return masked_image
 
 
-def setup_iterator(
+def setup_segmentation_iterator(
     zarr_url: str,
     # Segmentation parameters
     channels: list[ChannelSelectionModel],
