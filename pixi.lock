@@ -591,7 +591,7 @@ packages:
 - pypi: ./
   name: fractal-tasks-utils
   version: 0.1.0
-  sha256: 9267715dad82663ff58d4abcae4e9904372f6f739904f7de86c83d8d34077a5d
+  sha256: c1c75bbf871d921dae88a4a7dec5fd36d9258b1463f8f63d37be5bfe66410a76
   requires_dist:
   - ngio>0.5.0,<0.6.0
   - pydantic
