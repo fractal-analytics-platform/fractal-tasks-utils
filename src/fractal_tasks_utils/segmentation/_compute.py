@@ -21,7 +21,6 @@ from fractal_tasks_utils.segmentation._transforms import (
 class SegmentationFunction(Protocol):
     def __call__(
         self,
-        *,
         input_image: np.ndarray,
     ) -> np.ndarray:
         """Segmentation function protocol definition."""
