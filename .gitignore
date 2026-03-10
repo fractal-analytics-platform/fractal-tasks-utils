@@ -5,3 +5,6 @@
 # Python
 .coverage
 __pycache__/
+
+# Claude
+.claude/
