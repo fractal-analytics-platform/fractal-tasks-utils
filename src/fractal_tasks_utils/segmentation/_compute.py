@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Protocol
+from collections.abc import Callable
 
 import numpy as np
 from ngio import ChannelSelectionModel, OmeZarrContainer, open_ome_zarr_container
@@ -16,15 +16,6 @@ from fractal_tasks_utils.segmentation._models import (
 from fractal_tasks_utils.segmentation._transforms import (
     SegmentationTransformConfig,
 )
-
-
-class SegmentationFunction(Protocol):
-    def __call__(
-        self,
-        input_image: np.ndarray,
-    ) -> np.ndarray:
-        """Segmentation function protocol definition."""
-        ...
 
 
 def load_masked_image(
@@ -173,7 +164,7 @@ def setup_segmentation_iterator(
 
 def compute_segmentation(
     *,
-    func: SegmentationFunction,
+    func: Callable[[np.ndarray], np.ndarray],
     iterator: SegmentationIterator | MaskedSegmentationIterator,
 ) -> None:
     """Core computation loop for applying the segmentation function.
@@ -186,7 +177,6 @@ def compute_segmentation(
         func: The segmentation function to apply to each chunk of the image.
             This function should take an image chunk as input and return a label
             image as output.
-        func_kwargs: Keyword arguments to pass to the segmentation function.
         iterator: An iterator that yields image chunks and corresponding writers.
     """
     logger = logging.getLogger("fractal_tasks_utils.compute_segmentation")
@@ -200,11 +190,9 @@ def compute_segmentation(
     run_times: list[float] = []
     num_rois = len(iterator.rois)
     logging_step = max(1, num_rois // 10)
-    for it, (image_data, writer) in enumerate(iterator.iter_as_numpy()):
+    for it, (input_img, writer) in enumerate(iterator.iter_as_numpy()):
         start_time = time.time()
-        label_img = func(
-            input_image=image_data,
-        )
+        label_img = func(input_img)
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
         max_label = max(max_label, label_img.max())
