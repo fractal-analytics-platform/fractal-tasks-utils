@@ -211,7 +211,7 @@ def compute_segmentation(
         func: The segmentation function to apply to each chunk of the image.
             This function should take an image chunk as input and return a label
             image as output.
-        func_kwargs: A dictionary of keyword arguments to pass to the segmentation function.
+        func_kwargs: Keyword arguments to pass to the segmentation function.
         iterator: An iterator that yields image chunks and corresponding writers.
         logger (logging.Logger | None): Logger for logging messages. If not
             provided, a default logger will be used.
