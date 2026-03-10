@@ -175,7 +175,6 @@ def setup_segmentation_iterator(
 def compute_segmentation(
     *,
     func: SegmentationFunction,
-    func_kwargs: dict,
     iterator: SegmentationIterator | MaskedSegmentationIterator,
 ) -> None:
     """Core computation loop for applying the segmentation function.
@@ -206,7 +205,6 @@ def compute_segmentation(
         start_time = time.time()
         label_img = func(
             input_image=image_data,
-            **func_kwargs,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
