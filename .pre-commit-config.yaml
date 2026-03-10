@@ -1,0 +1,28 @@
+ci:
+  autoupdate_schedule: monthly
+  autoupdate_commit_msg: "ci(pre-commit.ci): autoupdate"
+  autofix_commit_msg: "style(pre-commit.ci): auto fixes [...]"
+
+repos:
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.36.2
+    hooks:
+      - id: typos
+        args: [--force-exclude, --write-changes]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/astral-sh/ty
+    rev: 0.0.21
+    hooks:
+      - id: ty

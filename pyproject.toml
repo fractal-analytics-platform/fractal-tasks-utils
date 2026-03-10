@@ -1,0 +1,57 @@
+[project]
+authors = [{ name = "lorenzo", email = "lorenzo.cerrone@uzh.ch" }]
+dependencies = ["ngio>0.5.0,<0.6.0", "pydantic", "numpy", "scikit-image"]
+name = "fractal-tasks-utils"
+requires-python = ">= 3.11"
+version = "0.1.0"
+
+[project.optional-dependencies]
+dev = ["ruff", "pre-commit", "ty"]
+
+test = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+fractal_tasks_utils = { path = ".", editable = true }
+
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+
+# dev env
+dev = { features = ["dev", "test"], solve-group = "dev" }
+test = { features = ["test"], solve-group = "dev" }
+
+[tool.pixi.tasks]
+format = "ruff format src"
+typecheck = "ty check src"
+test = "pytest tests/"
+
+# Ruff
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "S", "B", "C4"]
+pydocstyle.convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# Pytest
+[tool.pytest.ini_options]
+addopts = ["-v", "--cov=fractal_tasks_utils", "--cov-report=term-missing"]
+
+# Coverage
+[tool.coverage.run]
+source = ["fractal_tasks_utils"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
