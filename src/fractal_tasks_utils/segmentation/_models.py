@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class MaskingConfiguration(BaseModel):
+class MaskingConfig(BaseModel):
     """Masking configuration.
 
     Attributes:
@@ -20,11 +20,11 @@ class MaskingConfiguration(BaseModel):
     identifier: str | None = None
 
 
-class IteratorConfiguration(BaseModel):
-    """Advanced Masking configuration.
+class IteratorConfig(BaseModel):
+    """Advanced iterator configuration.
 
     Attributes:
-        masking (MaskingConfiguration | None): If set, the segmentation will be
+        masking (MaskingConfig | None): If set, the segmentation will be
             performed only within the confines of the specified mask. A mask can be
             specified either by a label image or a Masking ROI table.
         roi_table (str | None): Name of a ROI table. If set, the segmentation
@@ -32,7 +32,7 @@ class IteratorConfiguration(BaseModel):
             be combined with masking.
     """
 
-    masking: MaskingConfiguration | None = Field(
+    masking: MaskingConfig | None = Field(
         default=None, title="Masking Iterator Configuration"
     )
     roi_table: str | None = Field(default=None, title="Iterate Over ROIs")

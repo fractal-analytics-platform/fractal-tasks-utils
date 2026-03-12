@@ -113,15 +113,19 @@ def test_setup_measurement_iterator_channels_none_includes_all(ome_zarr_2d):
 
 def test_setup_measurement_iterator_with_table(ome_zarr_with_roi_table):
     iterator = setup_measurement_iterator(
-        ome_zarr_with_roi_table, "nuclei", tables=["roi_table"]
+        ome_zarr_with_roi_table, "nuclei", roi_table_names=["roi_table"]
     )
     assert isinstance(iterator, FeatureExtractorIterator)
     assert len(iterator.rois) > 0
 
 
 def test_setup_measurement_iterator_tables_none(ome_zarr_2d):
-    iterator_no_table = setup_measurement_iterator(ome_zarr_2d, "nuclei", tables=None)
-    iterator_empty = setup_measurement_iterator(ome_zarr_2d, "nuclei", tables=[])
+    iterator_no_table = setup_measurement_iterator(
+        ome_zarr_2d, "nuclei", roi_table_names=None
+    )
+    iterator_empty = setup_measurement_iterator(
+        ome_zarr_2d, "nuclei", roi_table_names=[]
+    )
     assert len(iterator_no_table.rois) == len(iterator_empty.rois)
 
 
@@ -136,7 +140,7 @@ def test_compute_measurement_basic(ome_zarr_2d):
     def simple_func(img, label, roi):
         return {"label": [1, 2], "area": [10.0, 20.0]}
 
-    df = compute_measurement(func=simple_func, iterator=iterator)
+    df = compute_measurement(measurement_func=simple_func, iterator=iterator)
     assert isinstance(df, pd.DataFrame)
     assert df.index.name == "label"
     assert "area" in df.columns
@@ -153,4 +157,4 @@ def test_compute_measurement_empty_raises(ome_zarr_2d):
         return {"label": [], "area": []}
 
     with pytest.raises(ValueError):
-        compute_measurement(func=dummy_func, iterator=empty_iterator)
+        compute_measurement(measurement_func=dummy_func, iterator=empty_iterator)
