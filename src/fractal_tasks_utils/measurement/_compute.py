@@ -55,8 +55,7 @@ def setup_measurement_iterator(
             no table is included.
 
     Returns:
-        A FeatureExtractorIterator ready to iterate over ROIs with
-        `.by_zyx(strict=False)` applied.
+        A FeatureExtractorIterator that yields (image, label, roi)
     """
     logger = logging.getLogger("fractal_tasks_utils.setup_measurement_iterator")
     logger.info(f"{zarr_url=}")
