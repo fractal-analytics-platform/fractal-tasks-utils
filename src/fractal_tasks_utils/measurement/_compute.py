@@ -40,6 +40,7 @@ def setup_measurement_iterator(
     label_image_name: str,
     level_path: str | None = None,
     channels: list[ChannelSelectionModel] | None = None,
+    roi_table_names: list[str] | None = None,
 ) -> FeatureExtractorIterator:
     """Set up a FeatureExtractorIterator for measurement tasks.
 
@@ -48,10 +49,13 @@ def setup_measurement_iterator(
         label_image_name: Name of the label image to analyze.
         level_path: Optional path to a specific resolution level of the image.
             If not provided, the highest resolution level is used.
+        channels: Optional list of ChannelSelectionModel to specify which channels
+            to include. If None, all channels are included.
+        roi_table_names: Optional list of ROI table names to include in the
+            iterator. If None, no table is included.
 
     Returns:
-        A FeatureExtractorIterator ready to iterate over ROIs with
-        `.by_zyx(strict=False)` applied.
+        A FeatureExtractorIterator that yields (image, label, roi)
     """
     logger = logging.getLogger("fractal_tasks_utils.setup_measurement_iterator")
     logger.info(f"{zarr_url=}")
@@ -89,22 +93,28 @@ def setup_measurement_iterator(
     )
     # by_zyx(strict=False): works for both 2D and 3D data
     iterator = iterator.by_zyx(strict=False)
+
+    tables = roi_table_names if roi_table_names is not None else []
+    for table_name in tables:
+        table = ome_zarr.get_generic_roi_table(table_name)
+        iterator = iterator.product(table)
+
     logger.info(f"Iterator created: {iterator=}")
     return iterator
 
 
 def compute_measurement(
     *,
-    func: Callable[[np.ndarray, np.ndarray, Roi], dict],
+    measurement_func: Callable[[np.ndarray, np.ndarray, Roi], dict],
     iterator: FeatureExtractorIterator,
 ) -> pd.DataFrame:
     """Run the measurement computation loop.
 
-    Iterates over ROIs using the provided iterator, applies `func` to each
-    chunk, and returns all results joined into a single DataFrame.
+    Iterates over ROIs using the provided iterator, applies `measurement_func`
+    to each chunk, and returns all results joined into a single DataFrame.
 
     Args:
-        func: Consumer-provided extraction function with signature
+        measurement_func: Consumer-provided extraction function with signature
             ``(image, label, roi) -> dict``. The dict keys become DataFrame
             columns; values must be lists of equal length.
         iterator: A `FeatureExtractorIterator` (with `.by_zyx` already applied)
@@ -120,7 +130,7 @@ def compute_measurement(
 
     logger.info("Starting measurement...")
     for it, (input_data, label_data, roi) in enumerate(iterator.iter_as_numpy()):
-        table_dict = func(input_data, label_data, roi)
+        table_dict = measurement_func(input_data, label_data, roi)
         tables.append(table_dict)
 
         if it % logging_step == 0 or it == num_rois - 1:

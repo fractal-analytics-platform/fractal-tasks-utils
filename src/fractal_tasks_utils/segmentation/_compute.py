@@ -10,17 +10,17 @@ from ngio.experimental.iterators import MaskedSegmentationIterator, Segmentation
 from ngio.images._masked_image import MaskedImage
 
 from fractal_tasks_utils.segmentation._models import (
-    IteratorConfiguration,
-    MaskingConfiguration,
+    IteratorConfig,
+    MaskingConfig,
 )
 from fractal_tasks_utils.segmentation._transforms import (
     SegmentationTransformConfig,
 )
 
 
-def load_masked_image(
+def _load_masked_image(
     ome_zarr: OmeZarrContainer,
-    masking_configuration: MaskingConfiguration,
+    masking_configuration: MaskingConfig,
     logger: logging.Logger,
     level_path: str | None = None,
 ) -> MaskedImage:
@@ -28,7 +28,7 @@ def load_masked_image(
 
     Args:
         ome_zarr: The OME-Zarr container.
-        masking_configuration (MaskingConfiguration): Configuration for masking.
+        masking_configuration (MaskingConfig): Configuration for masking.
         level_path (str | None): Optional path to a specific resolution level.
 
     """
@@ -53,10 +53,10 @@ def setup_segmentation_iterator(
     zarr_url: str,
     # Segmentation parameters
     channels: list[ChannelSelectionModel],
-    label_name: str = "segmentation",
+    output_label_name: str = "segmentation",
     level_path: str | None = None,
     # Iteration parameters
-    iterator_configuration: IteratorConfiguration | None = None,
+    iterator_configuration: IteratorConfig | None = None,
     segmentation_transform_config: SegmentationTransformConfig | None = None,
     # Other parameters
     overwrite: bool = True,
@@ -67,7 +67,7 @@ def setup_segmentation_iterator(
         zarr_url (str): URL to the OME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
-        label_name (str): Name of the resulting label image.
+        output_label_name (str): Name of the resulting label image.
         level_path (str | None): If the OME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
@@ -92,16 +92,16 @@ def setup_segmentation_iterator(
     # Validate that the specified channels are present in the image
     # if _skip_segmentation(channels=channels, ome_zarr=ome_zarr):
     #    return None
-    logger.info(f"Formatted label name: {label_name=}")
+    logger.info(f"Formatted label name: {output_label_name=}")
 
     # Derive the label and an get it at the specified level path
-    ome_zarr.derive_label(name=label_name, overwrite=overwrite)
-    label = ome_zarr.get_label(name=label_name, path=level_path)
+    ome_zarr.derive_label(name=output_label_name, overwrite=overwrite)
+    label = ome_zarr.get_label(name=output_label_name, path=level_path)
     logger.info(f"Derived label image: {label=}")
 
     # Set up the appropriate iterator based on the configuration
     if iterator_configuration is None:
-        iterator_configuration = IteratorConfiguration()
+        iterator_configuration = IteratorConfig()
 
     # Determine if we are doing 3D segmentation or 2D
     axes_order = "czyx" if ome_zarr.is_3d else "cyx"
@@ -124,7 +124,7 @@ def setup_segmentation_iterator(
         )
     else:
         # Since masking is requested, we need to determine load a masking image
-        masked_image = load_masked_image(
+        masked_image = _load_masked_image(
             ome_zarr=ome_zarr,
             masking_configuration=iterator_configuration.masking,
             level_path=level_path,
@@ -164,7 +164,7 @@ def setup_segmentation_iterator(
 
 def compute_segmentation(
     *,
-    func: Callable[[np.ndarray], np.ndarray],
+    segmentation_func: Callable[[np.ndarray], np.ndarray],
     iterator: SegmentationIterator | MaskedSegmentationIterator,
 ) -> None:
     """Core computation loop for applying the segmentation function.
@@ -174,7 +174,7 @@ def compute_segmentation(
     and writes the resulting label images back to the OME-Zarr.
 
     Args:
-        func: The segmentation function to apply to each chunk of the image.
+        segmentation_func: The segmentation function to apply to each image chunk.
             This function should take an image chunk as input and return a label
             image as output.
         iterator: An iterator that yields image chunks and corresponding writers.
@@ -191,11 +191,8 @@ def compute_segmentation(
     num_rois = len(iterator.rois)
     logging_step = max(1, num_rois // 10)
     for it, (input_img, writer) in enumerate(iterator.iter_as_numpy()):
-        print(input_img.shape)
         start_time = time.time()
-        label_img = func(input_img)
-        # label_img = label_img[0]
-        print(label_img.shape)
+        label_img = segmentation_func(input_img)
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
         max_label = max(max_label, label_img.max())
