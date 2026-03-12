@@ -40,6 +40,7 @@ def setup_measurement_iterator(
     label_image_name: str,
     level_path: str | None = None,
     channels: list[ChannelSelectionModel] | None = None,
+    tables: list[str] | None = None,
 ) -> FeatureExtractorIterator:
     """Set up a FeatureExtractorIterator for measurement tasks.
 
@@ -48,6 +49,10 @@ def setup_measurement_iterator(
         label_image_name: Name of the label image to analyze.
         level_path: Optional path to a specific resolution level of the image.
             If not provided, the highest resolution level is used.
+        channels: Optional list of ChannelSelectionModel to specify which channels
+            to include. If None, all channels are included.
+        tables: Optional list of table names to include in the iterator. If None,
+            no table is included.
 
     Returns:
         A FeatureExtractorIterator ready to iterate over ROIs with
@@ -89,6 +94,12 @@ def setup_measurement_iterator(
     )
     # by_zyx(strict=False): works for both 2D and 3D data
     iterator = iterator.by_zyx(strict=False)
+
+    tables = tables if tables is not None else []
+    for table_name in tables:
+        table = ome_zarr.get_generic_roi_table(table_name)
+        iterator = iterator.product(table)
+
     logger.info(f"Iterator created: {iterator=}")
     return iterator
 
