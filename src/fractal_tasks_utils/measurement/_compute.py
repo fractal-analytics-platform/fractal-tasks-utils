@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
-from ngio import Roi, open_ome_zarr_container
+from ngio import ChannelSelectionModel, Roi, open_ome_zarr_container
 from ngio.experimental.iterators import FeatureExtractorIterator
 from ngio.transforms import ZoomTransform
 
@@ -30,7 +30,6 @@ def join_tables(
             if key not in out_dict:
                 out_dict[key] = []
             out_dict[key].extend(value)
-
     df = pd.DataFrame(out_dict)
     df = df.set_index(index_key)
     return df
@@ -40,6 +39,7 @@ def setup_measurement_iterator(
     zarr_url: str,
     label_image_name: str,
     level_path: str | None = None,
+    channels: list[ChannelSelectionModel] | None = None,
 ) -> FeatureExtractorIterator:
     """Set up a FeatureExtractorIterator for measurement tasks.
 
@@ -84,6 +84,7 @@ def setup_measurement_iterator(
         input_image=image,
         input_label=label_image,
         axes_order=axes_order,
+        channel_selection=channels,
         label_transforms=[label_zoom_transform],
     )
     # by_zyx(strict=False): works for both 2D and 3D data
@@ -108,7 +109,6 @@ def compute_measurement(
             columns; values must be lists of equal length.
         iterator: A `FeatureExtractorIterator` (with `.by_zyx` already applied)
             that yields ``(image, label, roi)`` tuples.
-
     Returns:
         A DataFrame with all per-ROI results concatenated, indexed by "label".
     """

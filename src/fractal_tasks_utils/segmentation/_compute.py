@@ -191,8 +191,11 @@ def compute_segmentation(
     num_rois = len(iterator.rois)
     logging_step = max(1, num_rois // 10)
     for it, (input_img, writer) in enumerate(iterator.iter_as_numpy()):
+        print(input_img.shape)
         start_time = time.time()
         label_img = func(input_img)
+        # label_img = label_img[0]
+        print(label_img.shape)
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
         max_label = max(max_label, label_img.max())
