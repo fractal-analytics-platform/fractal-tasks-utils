@@ -6,33 +6,33 @@ from pydantic import BaseModel, Field
 
 
 class MaskingConfig(BaseModel):
-    """Masking configuration.
-
-    Attributes:
-        mode (Literal["Table Name", "Label Name"]): Mode of masking to be applied.
-            If "Table Name", the identifier refers to a masking table name.
-            If "Label Name", the identifier refers to a label image name.
-        identifier (str | None): Name of the masking table or label image
-            depending on the mode.
-    """
+    """Masking configuration."""
 
     mode: Literal["Table Name", "Label Name"] = "Table Name"
+    """
+    Mode of masking to be applied.
+        - If "Table Name", the identifier refers to a masking table name.
+        - If "Label Name", the identifier refers to a label image name.
+    """
     identifier: str | None = None
+    """
+    Name of the masking table or label image depending on the mode.
+    """
 
 
 class IteratorConfig(BaseModel):
-    """Advanced iterator configuration.
-
-    Attributes:
-        masking (MaskingConfig | None): If set, the segmentation will be
-            performed only within the confines of the specified mask. A mask can be
-            specified either by a label image or a Masking ROI table.
-        roi_table (str | None): Name of a ROI table. If set, the segmentation
-            will be applied to each ROI in the table individually. This option can
-            be combined with masking.
-    """
+    """Advanced iterator configuration."""
 
     masking: MaskingConfig | None = Field(
         default=None, title="Masking Iterator Configuration"
     )
+    """
+    If set, the segmentation will be performed only within the confines of
+    the specified mask. A mask can be specified either by a label image or a
+    Masking ROI table.
+    """
     roi_table: str | None = Field(default=None, title="Iterate Over ROIs")
+    """
+    Name of a ROI table. If set, the segmentation will be applied to each ROI
+    in the table individually. This option can be combined with masking.
+    """

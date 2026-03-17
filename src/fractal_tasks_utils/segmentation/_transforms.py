@@ -21,15 +21,16 @@ PostProcess = Annotated[
 
 
 class SegmentationTransformConfig(BaseModel):
-    """Configuration for pre- and post-processing steps.
-
-    Attributes:
-        pre_process (list[PreProcess]): List of pre-processing steps.
-        post_process (list[PostProcess]): List of post-processing steps.
-    """
+    """Configuration for pre- and post-processing steps."""
 
     pre_process: list[PreProcess] = Field(default_factory=list)
+    """
+    List of pre-processing steps to be applied before segmentation.
+    """
     post_process: list[PostProcess] = Field(default_factory=list)
+    """
+    List of post-processing steps to be applied after segmentation.
+    """
 
     def to_pre_transforms(self) -> list:
         """Get the list of pre-processing transformations."""

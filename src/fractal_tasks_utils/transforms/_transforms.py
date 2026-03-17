@@ -14,34 +14,6 @@ from skimage.morphology import remove_small_objects
 
 logger = logging.getLogger("fractal_tasks_utils.transforms")
 
-# class TransformProtocol(Protocol):
-#    """Protocol for a generic transform."""
-#
-#    def get_as_numpy_transform(
-#        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-#    ) -> np.ndarray:
-#        """A transformation to be applied after loading a numpy array."""
-#        ...
-#
-#    def get_as_dask_transform(
-#        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-#    ) -> da.Array:
-#        """A transformation to be applied after loading a dask array."""
-#        ...
-#
-#    def set_as_numpy_transform(
-#        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-#    ) -> np.ndarray:
-#        """A transformation to be applied before writing a numpy array."""
-#        ...
-#
-#    def set_as_dask_transform(
-#        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-#    ) -> da.Array:
-#        """A transformation to be applied before writing a dask array."""
-#        ...
-
-
 class GaussianBlurTransform:
     """Gaussian pre-processing configuration."""
 
@@ -111,18 +83,21 @@ class GaussianBlurTransform:
 
 
 class GaussianBlurConfig(BaseModel):
-    """Configuration for Gaussian blur transformation.
+    """Configuration for Gaussian blur transformation."""
 
-    Attributes:
-        type (Literal["gaussian"]): Type of transformation.
-        sigma_xy (float): Standard deviation for Gaussian kernel in XY plane.
-        sigma_z (float | None): Standard deviation for Gaussian kernel in Z axis.
-            If not specified, no blurring is applied in Z axis.
+    type: Literal["Gaussian Blur Filter"] = "Gaussian Blur Filter"
     """
-
-    type: Literal["gaussian"] = "gaussian"
-    sigma_xy: float = Field(default=2.0, gt=0)
+    Transformation type identifier for Gaussian blur filtering.
+    """
+    sigma_xy: float = Field(default=2.0, gt=0, title="Sigma XY")
+    """
+    Standard deviation for Gaussian kernel in XY plane.
+    """
     sigma_z: float | None = None
+    """
+    Standard deviation for Gaussian kernel in Z axis.
+    If not specified, no blurring is applied in Z axis.
+    """
 
     def to_transform(self) -> GaussianBlurTransform:
         """Convert the configuration to a GaussianBlurTransform instance."""
@@ -200,15 +175,25 @@ class MedianFilterConfig(BaseModel):
     """Configuration for Median filter transformation.
 
     Attributes:
-        type (Literal["median"]): Type of transformation.
+        type (Literal["Median Filter"]): Type of transformation.
         size_xy (int): Size in pixels of the median filter in XY plane.
         size_z (int | None): Size in pixels of the median filter in Z axis.
             If not specified, no filtering is applied in Z axis.
     """
 
-    type: Literal["median"] = "median"
-    size_xy: int = Field(default=2, gt=0)
+    type: Literal["Median Filter"] = "Median Filter"
+    """
+    Transformation type identifier for median filtering.
+    """
+    size_xy: int = Field(default=2, gt=0, title="Size XY")
+    """
+    Size in pixels of the median filter in XY plane.
+    """
     size_z: int | None = None
+    """
+    Size in pixels of the median filter in Z axis.
+    If not specified, no filtering is applied in Z axis.
+    """
 
     def to_transform(self) -> MedianFilterTransform:
         """Convert the configuration to a MedianFilterTransform instance."""
@@ -309,24 +294,33 @@ class HistogramEqualizationTransform:
 
 
 class HistogramEqualizationConfig(BaseModel):
-    """Configuration for Contrast Limited Adaptive Histogram Equalization (CLAHE).
+    """Configuration for Contrast Limited Adaptive Histogram Equalization (CLAHE)."""
 
-    Attributes:
-        type (Literal["histogram"]): Type of transformation.
-        kernel_size_xy (int | None): Shape of kernel in XY plane.
-            By default, kernel_size is 1/8 of image height by 1/8 of its width.
-        kernel_size_z (int | None): Shape of kernel in Z axis.
-            By default, kernel_size is 1/8 of image height by 1/8 of its width.
-        clip_limit (float): Clipping limit, normalized between 0 and 1
-            (higher values give more contrast).
-        nbins (int): Number of gray bins for histogram ("data range").
+    type: Literal["Histogram Equalization"] = "Histogram Equalization"
     """
-
-    type: Literal["histogram"] = "histogram"
-    kernel_size_xy: int | None = None
+    Transformation type identifier for histogram equalization.
+    """
+    kernel_size_xy: int | None = Field(
+        default=None,
+        title="Kernel Size XY",
+    )
+    """
+    Shape of kernel in XY plane. If None, the default is 1/8 of image height by
+    1/8 of its width.
+    """
     kernel_size_z: int | None = None
+    """
+    Shape of kernel in Z axis. If None, the default is 1/8 of image height by
+    1/8 of its width.
+    """
     clip_limit: float = Field(default=0.01, ge=0, le=1)
+    """
+    Clipping limit, normalized between 0 and 1 (higher values give more contrast).
+    """
     nbins: int = 256
+    """
+    Number of gray bins for histogram ("data range").
+    """
 
     def to_transform(self) -> HistogramEqualizationTransform:
         """Convert the configuration to a HistogramEqualizationTransform instance."""
@@ -385,15 +379,17 @@ class SizeFilterTransform:
 
 
 class SizeFilterConfig(BaseModel):
-    """Configuration for size filter post-processing.
+    """Configuration for size filter post-processing."""
 
-    Attributes:
-        type (Literal["size_filter"]): Type of transformation.
-        min_size (int): Minimum size in pixels for objects to keep.
+    type: Literal["Size Filter"] = "Size Filter"
     """
-
-    type: Literal["size_filter"] = "size_filter"
+    Transformation type identifier for size filtering.
+    """
     min_size: int = Field(ge=0)
+    """
+    Minimum size in pixels for objects to keep.
+    Objects smaller than this size will be removed.
+    """
 
     def to_transform(self) -> SizeFilterTransform:
         """Convert the configuration to a SizeFilterTransform instance."""
