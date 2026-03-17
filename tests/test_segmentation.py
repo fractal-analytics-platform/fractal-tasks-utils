@@ -330,3 +330,65 @@ def test_compute_segmentation_zero_background_preserved(ome_zarr_2d):
     ome_zarr = open_ome_zarr_container(ome_zarr_2d)
     written = ome_zarr.get_label("segmentation").get_array()
     assert (written == 0).any()
+
+
+# ---------------------------------------------------------------------------
+# Iterator transform behaviour
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def ome_zarr_2d_with_image_data(tmp_path):
+    """2D OME-Zarr with a single bright pixel in the DAPI channel."""
+    zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
+    image = ome_zarr.get_image()
+    data = image.get_array()
+    data[0, 30, 30] = 1000.0
+    image.set_array(data)
+    image.consolidate()
+    return zarr_path
+
+
+def test_iterator_pre_transform_gaussian_blur(ome_zarr_2d_with_image_data):
+    """Pre-process transform (GaussianBlur) must be visible in the numpy array
+    yielded by iter_as_numpy() before the segmentation function runs."""
+    transform_cfg = SegmentationTransformConfig(
+        pre_process=[GaussianBlurConfig(sigma_xy=2.0)]
+    )
+    iterator = setup_segmentation_iterator(
+        ome_zarr_2d_with_image_data,
+        channels=_CHANNELS,
+        segmentation_transform_config=transform_cfg,
+    )
+    input_img, _ = next(iterator.iter_as_numpy())
+
+    # The peak should be reduced (blur spreads the bright spot)
+    assert input_img[0, 30, 30] < 1000.0
+    # The blur should have spread energy to neighbouring pixels
+    assert input_img[0, 29, 30] > 0.0 or input_img[0, 31, 30] > 0.0
+
+
+def test_iterator_post_transform_size_filter(ome_zarr_2d):
+    """Post-process transform (SizeFilter) must remove small objects from the
+    label array before the writer saves it to the OME-Zarr."""
+    transform_cfg = SegmentationTransformConfig(
+        post_process=[SizeFilterConfig(min_size=50)]
+    )
+    iterator = setup_segmentation_iterator(
+        ome_zarr_2d,
+        channels=_CHANNELS,
+        segmentation_transform_config=transform_cfg,
+    )
+    input_img, writer = next(iterator.iter_as_numpy())
+
+    # Large object: 10×10 = 100 px > 50 → kept; small object: 3×3 = 9 px < 50 → removed
+    label = np.zeros_like(input_img, dtype=np.int32)
+    label[..., 10:20, 10:20] = 1
+    label[..., 40:43, 40:43] = 2
+    writer(label)
+
+    ome_zarr = open_ome_zarr_container(ome_zarr_2d)
+    written = np.asarray(ome_zarr.get_label("segmentation").get_array())
+
+    assert 1 in np.unique(written), "large object should be kept"
+    assert 2 not in np.unique(written), "small object should be removed by SizeFilter"
