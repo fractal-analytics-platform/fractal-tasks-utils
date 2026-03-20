@@ -1,6 +1,7 @@
 """Pydantic models for advanced iterator configuration."""
 
 import logging
+from functools import partial
 from typing import Annotated, Literal
 
 import numpy as np
@@ -14,14 +15,37 @@ from skimage.morphology import remove_small_objects
 
 logger = logging.getLogger("fractal_tasks_utils.transforms")
 
+BoundaryCondition = Literal["reflect", "constant", "nearest", "mirror", "wrap"]
+
+
 class GaussianBlurTransform:
     """Gaussian pre-processing configuration."""
 
-    def __init__(self, sigma_xy: float = 2.0, sigma_z: float | None = None):
+    def __init__(
+        self,
+        sigma_xy: float = 2.0,
+        sigma_z: float | None = None,
+        preserve_range: bool = True,
+        boundary_condition: BoundaryCondition = "nearest",
+        cval: float = 0,
+        truncate: float = 4.0,
+    ):
         self.sigma_xy = sigma_xy
-        self.sigma_z = sigma_z
+        self.sigma_z = sigma_z if sigma_z is not None else 0
+        self.preserve_range = preserve_range
+        self.boundary_condition = boundary_condition
+        self.cval = cval
+        self.truncate = truncate
 
-    def apply(self, image: np.ndarray) -> np.ndarray:
+        self._gaussian = partial(
+            gaussian,
+            preserve_range=self.preserve_range,
+            mode=self.boundary_condition,
+            cval=self.cval,
+            truncate=self.truncate,
+        )
+
+    def apply(self, image: np.ndarray, axes: tuple[str, ...]) -> np.ndarray:
         """Apply Gaussian filter to the image.
 
         Args:
@@ -30,35 +54,26 @@ class GaussianBlurTransform:
         Returns:
             np.ndarray: Filtered image.
         """
-        if image.ndim == 2:
-            if self.sigma_z is not None:
-                logger.warning(
-                    "sigma_z is specified but the input image is 2D. Ignoring sigma_z."
-                )
-            return gaussian(image, sigma=self.sigma_xy)
-        elif image.ndim == 3:
-            sigma = (
-                self.sigma_z if self.sigma_z is not None else 0,
-                self.sigma_xy,
-                self.sigma_xy,
+        if image.ndim != len(axes):
+            raise ValueError(
+                f"Image dimensions {image.ndim} do not match number of axes"
+                f" {len(axes)}."
             )
-            return gaussian(image, sigma=sigma)
-        elif image.ndim == 4:
-            sigma = (
-                0,
-                self.sigma_z if self.sigma_z is not None else 0,
-                self.sigma_xy,
-                self.sigma_xy,
-            )
-            return gaussian(image, sigma=sigma)
-        else:
-            raise ValueError("Input to Gaussian filter image must be 2D, 3D, or 4D.")
+        sigma = []
+        for ax in axes:
+            if ax in ("x", "y"):
+                sigma.append(self.sigma_xy)
+            elif ax == "z":
+                sigma.append(self.sigma_z)
+            else:
+                sigma.append(0)  # No blurring for non-spatial axes
+        return self._gaussian(image, sigma=sigma)
 
     def get_as_numpy_transform(
         self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
     ) -> np.ndarray:
         """Apply Gaussian blur transformation to a numpy array."""
-        return self.apply(array)
+        return self.apply(array, axes=axes_ops.output_axes)
 
     def get_as_dask_transform(
         self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
@@ -80,6 +95,30 @@ class GaussianBlurTransform:
     ) -> da.Array:
         """Get Gaussian blur transformation applied before writing a dask array."""
         return array
+
+
+class AdvancedGaussianBlurConfig(BaseModel):
+    """Configuration for advanced Gaussian blur transformation."""
+
+    preserve_range: bool = True
+    """
+    Whether to preserve the original range of values in the image. If False, the input
+    image is normalized to the range [0, 1] or [-1, 1] depending on the data type.
+    """
+    boundary_condition: BoundaryCondition = "nearest"
+    """
+    The boundary condition to use when applying the Gaussian filter.
+    """
+    cval: float = 0
+    """
+    The value to use for points outside the boundaries when using a constant boundary
+    condition.
+    """
+    truncate: float = 4.0
+    """
+    The number of standard deviations to truncate the Gaussian kernel. Higher values
+    result in a larger kernel and more blurring.
+    """
 
 
 class GaussianBlurConfig(BaseModel):
@@ -111,44 +150,37 @@ class MedianFilterTransform:
         self.size_xy = size_xy
         self.size_z = size_z
 
-    def apply(self, image: np.ndarray) -> np.ndarray:
+    def apply(self, image: np.ndarray, axes: tuple[str, ...]) -> np.ndarray:
         """Apply Median filter to the image.
 
         Args:
             image (np.ndarray): Input image.
+            axes (tuple[str, ...]): Axis names corresponding to image dimensions
+                (e.g. ``("z", "y", "x")`` or ``("c", "y", "x")``).
 
         Returns:
             np.ndarray: Filtered image.
         """
-        if image.ndim == 2:
-            if self.size_z is not None:
-                logger.warning(
-                    "size_z is specified but the input image is 2D. Ignoring size_z."
-                )
-            return median(image, footprint=np.ones((self.size_xy, self.size_xy)))
-        elif image.ndim == 3:
-            size = (
-                self.size_z if self.size_z is not None else 1,
-                self.size_xy,
-                self.size_xy,
+        if image.ndim != len(axes):
+            raise ValueError(
+                f"Image dimensions {image.ndim} do not match number of axes"
+                f" {len(axes)}."
             )
-            return median(image, footprint=np.ones(size))
-        elif image.ndim == 4:
-            size = (
-                1,
-                self.size_z if self.size_z is not None else 1,
-                self.size_xy,
-                self.size_xy,
-            )
-            return median(image, footprint=np.ones(size))
-        else:
-            raise ValueError("Input to median filter image must be 2D, 3D, or 4D.")
+        footprint_shape = []
+        for ax in axes:
+            if ax in ("x", "y"):
+                footprint_shape.append(self.size_xy)
+            elif ax == "z":
+                footprint_shape.append(self.size_z if self.size_z is not None else 1)
+            else:
+                footprint_shape.append(1)  # No filtering for non-spatial axes
+        return median(image, footprint=np.ones(footprint_shape, dtype=bool))
 
     def get_as_numpy_transform(
         self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
     ) -> np.ndarray:
         """Apply Median filter transformation to a numpy array."""
-        return self.apply(array)
+        return self.apply(array, axes=axes_ops.output_axes)
 
     def get_as_dask_transform(
         self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
@@ -215,49 +247,42 @@ class HistogramEqualizationTransform:
         self.clip_limit = clip_limit
         self.nbins = nbins
 
-    def _build_kernel_size(self, image: np.ndarray) -> np.ndarray | None:
-        """Build kernel size tuple based on image dimensions."""
-        if image.ndim == 2:
-            if self.kernel_size_z is not None:
-                logger.warning(
-                    "kernel_size_z is specified but the input image is 2D. "
-                    "Ignoring kernel_size_z."
-                )
-            kernel_size = (self.kernel_size_xy, self.kernel_size_xy)
-
-        elif image.ndim == 3:
-            kernel_size = (
-                self.kernel_size_z,
-                self.kernel_size_xy,
-                self.kernel_size_xy,
+    def _build_kernel_size(
+        self, image: np.ndarray, axes: tuple[str, ...]
+    ) -> np.ndarray | None:
+        """Build kernel size tuple based on named axes."""
+        if image.ndim != len(axes):
+            raise ValueError(
+                f"Image dimensions {image.ndim} do not match number of axes"
+                f" {len(axes)}."
             )
+        kernel_size = []
+        for ax in axes:
+            if ax in ("x", "y"):
+                kernel_size.append(self.kernel_size_xy)
+            elif ax == "z":
+                kernel_size.append(self.kernel_size_z)
+            else:
+                kernel_size.append(1)  # No adaptive kernel for non-spatial axes
 
-        elif image.ndim == 4:
-            kernel_size = (
-                1,
-                self.kernel_size_z,
-                self.kernel_size_xy,
-                self.kernel_size_xy,
-            )
-        else:
-            raise ValueError("Input to histogram equalization must be 2D, 3D, or 4D.")
-
-        # Return None if any kernel size component is None (use scikit-image defaults)
+        # Return None if any spatial kernel size is None (use scikit-image defaults)
         # Return np.array only if all values are specified
         return (
             np.array(kernel_size) if all(k is not None for k in kernel_size) else None
         )
 
-    def apply(self, image: np.ndarray) -> np.ndarray:
+    def apply(self, image: np.ndarray, axes: tuple[str, ...]) -> np.ndarray:
         """Apply histogram equalization to the image.
 
         Args:
             image (np.ndarray): Input image.
+            axes (tuple[str, ...]): Axis names corresponding to image dimensions
+                (e.g. ``("z", "y", "x")`` or ``("c", "y", "x")``).
 
         Returns:
             np.ndarray: Histogram equalized image.
         """
-        kernel_size = self._build_kernel_size(image)
+        kernel_size = self._build_kernel_size(image, axes)
 
         return equalize_adapthist(
             image,
@@ -270,7 +295,7 @@ class HistogramEqualizationTransform:
         self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
     ) -> np.ndarray:
         """Apply histogram equalization transformation to a numpy array."""
-        return self.apply(array)
+        return self.apply(array, axes=axes_ops.output_axes)
 
     def get_as_dask_transform(
         self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
