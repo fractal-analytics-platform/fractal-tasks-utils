@@ -52,21 +52,47 @@ def label_2d():
 # ---------------------------------------------------------------------------
 
 
-def test_gaussian_blur_2d(image_2d):
-    result = GaussianBlurTransform(sigma_xy=1.0).apply(image_2d)
+def test_gaussian_blur_axes_yx(image_2d):
+    result = GaussianBlurTransform(sigma_xy=1.0).apply(image_2d, axes=("y", "x"))
     assert result.shape == image_2d.shape
     assert not np.array_equal(result, image_2d)
 
 
-def test_gaussian_blur_3d(image_3d):
-    result = GaussianBlurTransform(sigma_xy=1.0, sigma_z=1.0).apply(image_3d)
+def test_gaussian_blur_axes_zyx(image_3d):
+    result = GaussianBlurTransform(sigma_xy=1.0, sigma_z=1.0).apply(
+        image_3d, axes=("z", "y", "x")
+    )
     assert result.shape == image_3d.shape
+    assert not np.array_equal(result, image_3d)
 
 
-def test_gaussian_blur_invalid_ndim():
-    arr = np.zeros((2, 2, 4, 32, 32))
+def test_gaussian_blur_axes_czyx(image_4d):
+    result = GaussianBlurTransform(sigma_xy=1.0, sigma_z=1.0).apply(
+        image_4d, axes=("c", "z", "y", "x")
+    )
+    assert result.shape == image_4d.shape
+
+
+def test_gaussian_blur_axes_cyx():
+    rng = np.random.default_rng(0)
+    image_cyx = rng.random((3, 16, 16)).astype(np.float32)
+    result = GaussianBlurTransform(sigma_xy=1.0).apply(image_cyx, axes=("c", "y", "x"))
+    assert result.shape == image_cyx.shape
+    assert not np.array_equal(result, image_cyx)
+
+
+def test_gaussian_blur_preserves_range():
+    rng = np.random.default_rng(0)
+    image = (rng.random((16, 16)) * 100 + 100).astype(np.uint16)
+    result = GaussianBlurTransform(sigma_xy=1.0).apply(image, axes=("y", "x"))
+    # preserve_range=True: output stays in original scale, not normalized to [0, 1]
+    assert result.max() > 1.0
+
+
+def test_gaussian_blur_mismatched_axes_raises():
+    arr = np.zeros((16, 16))
     with pytest.raises(ValueError):
-        GaussianBlurTransform().apply(arr)
+        GaussianBlurTransform().apply(arr, axes=("z", "y", "x"))
 
 
 # ---------------------------------------------------------------------------
@@ -94,14 +120,41 @@ def test_gaussian_blur_config_invalid_sigma():
 
 
 def test_median_filter_2d(image_2d):
-    result = MedianFilterTransform(size_xy=3).apply(image_2d)
+    result = MedianFilterTransform(size_xy=3).apply(image_2d, axes=("y", "x"))
     assert result.shape == image_2d.shape
 
 
-def test_median_filter_invalid_ndim():
-    arr = np.zeros((2, 2, 4, 32, 32))
+def test_median_filter_axes_zyx(image_3d):
+    result = MedianFilterTransform(size_xy=3, size_z=2).apply(
+        image_3d, axes=("z", "y", "x")
+    )
+    assert result.shape == image_3d.shape
+
+
+def test_median_filter_axes_czyx(image_4d):
+    result = MedianFilterTransform(size_xy=3, size_z=2).apply(
+        image_4d, axes=("c", "z", "y", "x")
+    )
+    assert result.shape == image_4d.shape
+
+
+def test_median_filter_axes_cyx():
+    rng = np.random.default_rng(0)
+    image_cyx = rng.random((3, 16, 16)).astype(np.float32)
+    result = MedianFilterTransform(size_xy=3).apply(image_cyx, axes=("c", "y", "x"))
+    assert result.shape == image_cyx.shape
+
+
+def test_median_filter_axes_zyx_no_size_z(image_3d):
+    # size_z=None with z axis present: falls back to 1 for z dimension
+    result = MedianFilterTransform(size_xy=3).apply(image_3d, axes=("z", "y", "x"))
+    assert result.shape == image_3d.shape
+
+
+def test_median_filter_mismatched_axes_raises():
+    arr = np.zeros((16, 16))
     with pytest.raises(ValueError):
-        MedianFilterTransform().apply(arr)
+        MedianFilterTransform().apply(arr, axes=("z", "y", "x"))
 
 
 # ---------------------------------------------------------------------------
@@ -127,15 +180,35 @@ def test_median_filter_config_invalid_size():
 
 
 def test_histogram_equalization_2d(image_2d):
-    result = HistogramEqualizationTransform().apply(image_2d)
+    result = HistogramEqualizationTransform().apply(image_2d, axes=("y", "x"))
     assert result.shape == image_2d.shape
     assert result.min() >= 0.0
     assert result.max() <= 1.0
 
 
 def test_histogram_equalization_3d(image_3d):
-    result = HistogramEqualizationTransform().apply(image_3d)
+    result = HistogramEqualizationTransform().apply(image_3d, axes=("z", "y", "x"))
     assert result.shape == image_3d.shape
+
+
+def test_histogram_equalization_axes_czyx(image_4d):
+    result = HistogramEqualizationTransform().apply(
+        image_4d, axes=("c", "z", "y", "x")
+    )
+    assert result.shape == image_4d.shape
+
+
+def test_histogram_equalization_axes_cyx():
+    rng = np.random.default_rng(0)
+    image_cyx = rng.random((2, 16, 16))
+    result = HistogramEqualizationTransform().apply(image_cyx, axes=("c", "y", "x"))
+    assert result.shape == image_cyx.shape
+
+
+def test_histogram_equalization_mismatched_axes_raises():
+    arr = np.zeros((16, 16))
+    with pytest.raises(ValueError):
+        HistogramEqualizationTransform().apply(arr, axes=("z", "y", "x"))
 
 
 # ---------------------------------------------------------------------------
