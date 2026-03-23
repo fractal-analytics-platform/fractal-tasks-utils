@@ -108,13 +108,6 @@ def ome_zarr_with_roi_table(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_masking_configuration_defaults():
-    cfg = MaskingConfig()
-    assert cfg.mode == "Masking"
-    assert cfg.masking_source == "Table Name"
-    assert cfg.identifier is None
-
-
 def test_masking_configuration_label_name_mode():
     cfg = MaskingConfig(masking_source="Label Name", identifier="nuclei")
     assert cfg.mode == "Masking"
@@ -134,9 +127,10 @@ def test_iterator_configuration_defaults():
 
 
 def test_iterator_configuration_with_masking():
-    cfg = IteratorConfig(masking=MaskingConfig())
+    cfg = IteratorConfig(masking=MaskingConfig(identifier="masking_table"))
     assert isinstance(cfg.masking, MaskingConfig)
     assert cfg.masking.masking_source == "Table Name"
+    assert cfg.masking.identifier == "masking_table"
 
 
 def test_iterator_configuration_with_roi_table():
@@ -194,7 +188,7 @@ def test__load_masked_image_by_table_name(ome_zarr_with_masking_table, caplog):
     import logging
 
     ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_table)
-    cfg = MaskingConfig(masking_source="Table Name", identifier="masking_table")
+    cfg = MaskingConfig(masking_source="Table Name", identifier="organoids")
     logger = logging.getLogger("test")
     masked = _load_masked_image(ome_zarr, cfg, logger)
     assert isinstance(masked, MaskedImage)
@@ -228,7 +222,7 @@ def test_setup_segmentation_iterator_3d(ome_zarr_3d):
 
 
 def test_setup_segmentation_iterator_masked_table(ome_zarr_with_masking_table):
-    mc = MaskingConfig(masking_source="Table Name", identifier="masking_table")
+    mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
         ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
@@ -295,7 +289,7 @@ def test_compute_segmentation_basic(ome_zarr_2d):
 
 def test_compute_segmentation_label_uniqueness(ome_zarr_with_masking_table):
     """Labels from different ROIs must be offset so they don't collide."""
-    mc = MaskingConfig(masking_source="Table Name", identifier="masking_table")
+    mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
         ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic

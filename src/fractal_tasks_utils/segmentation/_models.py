@@ -35,7 +35,7 @@ class MaskingConfig(BaseModel):
         In this case, the masking roi table will be built on the fly from the label
         image.
     """
-    identifier: str | None = None
+    identifier: str
     """
     Name of the masking table or label image depending on the mode.
     """
