@@ -1,18 +1,39 @@
 """Pydantic models for advanced iterator configuration."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
+
+
+class NoMaskingConfig(BaseModel):
+    """No masking configuration."""
+
+    mode: Literal["No Masking"] = "No Masking"
+    """
+    If set to "No Masking", the segmentation will be performed without any masking,
+    while if set to "Masking", the segmentation will be performed only within the
+    the confines of the specified mask.
+    """
 
 
 class MaskingConfig(BaseModel):
     """Masking configuration."""
 
-    mode: Literal["Table Name", "Label Name"] = "Table Name"
+    mode: Literal["Masking"] = "Masking"
+    """
+    If set to "No Masking", the segmentation will be performed without any masking,
+    while if set to "Masking", the segmentation will be performed only within the
+    the confines of the specified mask.
+    """
+
+    masking_source: Literal["Table Name", "Label Name"] = "Table Name"
     """
     Mode of masking to be applied.
-        - If "Table Name", the identifier refers to a masking table name.
-        - If "Label Name", the identifier refers to a label image name.
+        - If "Table Name", the identifier refers to a table name. This must identify
+        a valid masking ROI table in the OME-Zarr.
+        - If "Label Name", the identifier refers to a label image name in the OME-Zarr.
+        In this case, the masking roi table will be built on the fly from the label
+        image.
     """
     identifier: str | None = None
     """
@@ -20,11 +41,17 @@ class MaskingConfig(BaseModel):
     """
 
 
+MaskingConfigUnion = Annotated[
+    NoMaskingConfig | MaskingConfig,
+    Field(discriminator="mode"),
+]
+
+
 class IteratorConfig(BaseModel):
     """Advanced iterator configuration."""
 
-    masking: MaskingConfig | None = Field(
-        default=None, title="Masking Iterator Configuration"
+    masking: MaskingConfigUnion = Field(
+        default=NoMaskingConfig(), title="Masking Iterator Configuration"
     )
     """
     If set, the segmentation will be performed only within the confines of

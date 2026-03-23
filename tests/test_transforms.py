@@ -192,9 +192,7 @@ def test_histogram_equalization_3d(image_3d):
 
 
 def test_histogram_equalization_axes_czyx(image_4d):
-    result = HistogramEqualizationTransform().apply(
-        image_4d, axes=("c", "z", "y", "x")
-    )
+    result = HistogramEqualizationTransform().apply(image_4d, axes=("c", "z", "y", "x"))
     assert result.shape == image_4d.shape
 
 

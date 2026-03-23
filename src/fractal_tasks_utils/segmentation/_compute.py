@@ -12,6 +12,7 @@ from ngio.images._masked_image import MaskedImage
 from fractal_tasks_utils.segmentation._models import (
     IteratorConfig,
     MaskingConfig,
+    NoMaskingConfig,
 )
 from fractal_tasks_utils.segmentation._transforms import (
     SegmentationTransformConfig,
@@ -110,7 +111,7 @@ def setup_segmentation_iterator(
     if segmentation_transform_config is None:
         segmentation_transform_config = SegmentationTransformConfig()
 
-    if iterator_configuration.masking is None:
+    if isinstance(iterator_configuration.masking, NoMaskingConfig):
         # Create a basic SegmentationIterator without masking
         image = ome_zarr.get_image(path=level_path)
         logger.info(f"{image=}")
