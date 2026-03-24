@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from ngio import ChannelSelectionModel, create_empty_ome_zarr, open_ome_zarr_container
+from ngio import ChannelSelectionModel, create_empty_some_zarr, open_some_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._masked_image import MaskedImage
 
@@ -32,28 +32,28 @@ _CHANNELS = [ChannelSelectionModel(mode="label", identifier="DAPI")]
 
 def _make_2d_zarr(tmp_path, name="test.zarr"):
     zarr_path = str(tmp_path / name)
-    ome_zarr = create_empty_ome_zarr(
+    some_zarr = create_empty_some_zarr(
         store=zarr_path,
         shape=(2, 64, 64),
         pixelsize=0.5,
         channels_meta=["DAPI", "GFP"],
         axes_names=["c", "y", "x"],
     )
-    return zarr_path, ome_zarr
+    return zarr_path, some_zarr
 
 
 @pytest.fixture
-def ome_zarr_2d(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr."""
+def some_zarr_2d(tmp_path):
+    """Minimal 2-channel 2D SOME-Zarr."""
     zarr_path, _ = _make_2d_zarr(tmp_path)
     return zarr_path
 
 
 @pytest.fixture
-def ome_zarr_3d(tmp_path):
-    """Minimal 2-channel 3D OME-Zarr."""
+def some_zarr_3d(tmp_path):
+    """Minimal 2-channel 3D SOME-Zarr."""
     zarr_path = str(tmp_path / "test3d.zarr")
-    create_empty_ome_zarr(
+    create_empty_some_zarr(
         store=zarr_path,
         shape=(2, 4, 32, 32),
         pixelsize=0.5,
@@ -65,11 +65,11 @@ def ome_zarr_3d(tmp_path):
 
 
 @pytest.fixture
-def ome_zarr_with_masking_label(tmp_path):
-    """2D OME-Zarr with a masking label ('organoids') containing 2 non-zero regions."""
-    zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
-    ome_zarr.derive_label(name="organoids", overwrite=True)
-    lbl = ome_zarr.get_label("organoids")
+def some_zarr_with_masking_label(tmp_path):
+    """2D SOME-Zarr with a masking label ('organoids') containing 2 non-zero regions."""
+    zarr_path, some_zarr = _make_2d_zarr(tmp_path)
+    some_zarr.derive_label(name="organoids", overwrite=True)
+    lbl = some_zarr.get_label("organoids")
     data = lbl.get_array()
     data[5:25, 5:25] = 1
     data[35:55, 35:55] = 2
@@ -79,27 +79,27 @@ def ome_zarr_with_masking_label(tmp_path):
 
 
 @pytest.fixture
-def ome_zarr_with_masking_table(tmp_path):
-    """2D OME-Zarr with a masking ROI table built from the 'organoids' label."""
-    zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
-    ome_zarr.derive_label(name="organoids", overwrite=True)
-    lbl = ome_zarr.get_label("organoids")
+def some_zarr_with_masking_table(tmp_path):
+    """2D SOME-Zarr with a masking ROI table built from the 'organoids' label."""
+    zarr_path, some_zarr = _make_2d_zarr(tmp_path)
+    some_zarr.derive_label(name="organoids", overwrite=True)
+    lbl = some_zarr.get_label("organoids")
     data = lbl.get_array()
     data[5:25, 5:25] = 1
     data[35:55, 35:55] = 2
     lbl.set_array(data)
     lbl.consolidate()
-    masking_table = ome_zarr.build_masking_roi_table("organoids")
-    ome_zarr.add_table(name="masking_table", table=masking_table)
+    masking_table = some_zarr.build_masking_roi_table("organoids")
+    some_zarr.add_table(name="masking_table", table=masking_table)
     return zarr_path
 
 
 @pytest.fixture
-def ome_zarr_with_roi_table(tmp_path):
-    """2D OME-Zarr with an image-level iteration ROI table."""
-    zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
-    roi_table = ome_zarr.build_image_roi_table()
-    ome_zarr.add_table(name="roi_table", table=roi_table)
+def some_zarr_with_roi_table(tmp_path):
+    """2D SOME-Zarr with an image-level iteration ROI table."""
+    zarr_path, some_zarr = _make_2d_zarr(tmp_path)
+    roi_table = some_zarr.build_image_roi_table()
+    some_zarr.add_table(name="roi_table", table=roi_table)
     return zarr_path
 
 
@@ -184,23 +184,23 @@ def test_segmentation_transform_config_mixed_pre_process():
 # ---------------------------------------------------------------------------
 
 
-def test__load_masked_image_by_table_name(ome_zarr_with_masking_table, caplog):
+def test__load_masked_image_by_table_name(some_zarr_with_masking_table, caplog):
     import logging
 
-    ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_table)
+    some_zarr = open_some_zarr_container(some_zarr_with_masking_table)
     cfg = MaskingConfig(masking_source="Table Name", identifier="organoids")
     logger = logging.getLogger("test")
-    masked = _load_masked_image(ome_zarr, cfg, logger)
+    masked = _load_masked_image(some_zarr, cfg, logger)
     assert isinstance(masked, MaskedImage)
 
 
-def test__load_masked_image_by_label_name(ome_zarr_with_masking_label):
+def test__load_masked_image_by_label_name(some_zarr_with_masking_label):
     import logging
 
-    ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_label)
+    some_zarr = open_some_zarr_container(some_zarr_with_masking_label)
     cfg = MaskingConfig(masking_source="Label Name", identifier="organoids")
     logger = logging.getLogger("test")
-    masked = _load_masked_image(ome_zarr, cfg, logger)
+    masked = _load_masked_image(some_zarr, cfg, logger)
     assert isinstance(masked, MaskedImage)
 
 
@@ -209,51 +209,51 @@ def test__load_masked_image_by_label_name(ome_zarr_with_masking_label):
 # ---------------------------------------------------------------------------
 
 
-def test_setup_segmentation_iterator_2d(ome_zarr_2d):
-    iterator = setup_segmentation_iterator(ome_zarr_2d, channels=_CHANNELS)
+def test_setup_segmentation_iterator_2d(some_zarr_2d):
+    iterator = setup_segmentation_iterator(some_zarr_2d, channels=_CHANNELS)
     assert isinstance(iterator, SegmentationIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_segmentation_iterator_3d(ome_zarr_3d):
-    iterator = setup_segmentation_iterator(ome_zarr_3d, channels=_CHANNELS)
+def test_setup_segmentation_iterator_3d(some_zarr_3d):
+    iterator = setup_segmentation_iterator(some_zarr_3d, channels=_CHANNELS)
     assert isinstance(iterator, SegmentationIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_segmentation_iterator_masked_table(ome_zarr_with_masking_table):
+def test_setup_segmentation_iterator_masked_table(some_zarr_with_masking_table):
     mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
-        ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
+        some_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
     )
     assert isinstance(iterator, MaskedSegmentationIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_segmentation_iterator_masked_label(ome_zarr_with_masking_label):
+def test_setup_segmentation_iterator_masked_label(some_zarr_with_masking_label):
     mc = MaskingConfig(masking_source="Label Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
-        ome_zarr_with_masking_label, channels=_CHANNELS, iterator_configuration=ic
+        some_zarr_with_masking_label, channels=_CHANNELS, iterator_configuration=ic
     )
     assert isinstance(iterator, MaskedSegmentationIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_segmentation_iterator_with_roi_table(ome_zarr_with_roi_table):
+def test_setup_segmentation_iterator_with_roi_table(some_zarr_with_roi_table):
     ic = IteratorConfig(roi_table="roi_table")
     iterator = setup_segmentation_iterator(
-        ome_zarr_with_roi_table, channels=_CHANNELS, iterator_configuration=ic
+        some_zarr_with_roi_table, channels=_CHANNELS, iterator_configuration=ic
     )
     assert isinstance(iterator, SegmentationIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_segmentation_iterator_default_configs(ome_zarr_2d):
+def test_setup_segmentation_iterator_default_configs(some_zarr_2d):
     """Passing None for optional configs should not raise."""
     iterator = setup_segmentation_iterator(
-        ome_zarr_2d,
+        some_zarr_2d,
         channels=_CHANNELS,
         iterator_configuration=None,
         segmentation_transform_config=None,
@@ -261,12 +261,12 @@ def test_setup_segmentation_iterator_default_configs(ome_zarr_2d):
     assert isinstance(iterator, SegmentationIterator)
 
 
-def test_setup_segmentation_iterator_custom_label_name(ome_zarr_2d):
+def test_setup_segmentation_iterator_custom_label_name(some_zarr_2d):
     setup_segmentation_iterator(
-        ome_zarr_2d, channels=_CHANNELS, output_label_name="my_label"
+        some_zarr_2d, channels=_CHANNELS, output_label_name="my_label"
     )
-    ome_zarr = open_ome_zarr_container(ome_zarr_2d)
-    assert "my_label" in ome_zarr.list_labels()
+    some_zarr = open_some_zarr_container(some_zarr_2d)
+    assert "my_label" in some_zarr.list_labels()
 
 
 # ---------------------------------------------------------------------------
@@ -274,9 +274,9 @@ def test_setup_segmentation_iterator_custom_label_name(ome_zarr_2d):
 # ---------------------------------------------------------------------------
 
 
-def test_compute_segmentation_basic(ome_zarr_2d):
+def test_compute_segmentation_basic(some_zarr_2d):
     """Segmentation function is called and results are written without error."""
-    iterator = setup_segmentation_iterator(ome_zarr_2d, channels=_CHANNELS)
+    iterator = setup_segmentation_iterator(some_zarr_2d, channels=_CHANNELS)
     call_count = [0]
 
     def seg_func(img):
@@ -287,12 +287,12 @@ def test_compute_segmentation_basic(ome_zarr_2d):
     assert call_count[0] == len(iterator.rois)
 
 
-def test_compute_segmentation_label_uniqueness(ome_zarr_with_masking_table):
+def test_compute_segmentation_label_uniqueness(some_zarr_with_masking_table):
     """Labels from different ROIs must be offset so they don't collide."""
     mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
-        ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
+        some_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
     )
     # Each ROI returns labels 1 and 2; with 2 ROIs the second should be offset to 3, 4
     call_count = [0]
@@ -307,16 +307,16 @@ def test_compute_segmentation_label_uniqueness(ome_zarr_with_masking_table):
     compute_segmentation(segmentation_func=seg_func, iterator=iterator)
     assert call_count[0] == 2
 
-    ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_table)
-    written = ome_zarr.get_label("segmentation").get_array()
+    some_zarr = open_some_zarr_container(some_zarr_with_masking_table)
+    written = some_zarr.get_label("segmentation").get_array()
     non_zero = sorted(np.unique(written[written > 0]))
     # Labels should be disjoint across the two ROIs (1, 2 from first; 3, 4 from second)
     assert len(non_zero) == len(set(non_zero))
 
 
-def test_compute_segmentation_zero_background_preserved(ome_zarr_2d):
+def test_compute_segmentation_zero_background_preserved(some_zarr_2d):
     """Zero-valued (background) pixels must remain 0 after the label offset."""
-    iterator = setup_segmentation_iterator(ome_zarr_2d, channels=_CHANNELS)
+    iterator = setup_segmentation_iterator(some_zarr_2d, channels=_CHANNELS)
 
     def seg_func(img):
         result = np.zeros_like(img)
@@ -324,8 +324,8 @@ def test_compute_segmentation_zero_background_preserved(ome_zarr_2d):
         return result
 
     compute_segmentation(segmentation_func=seg_func, iterator=iterator)
-    ome_zarr = open_ome_zarr_container(ome_zarr_2d)
-    written = ome_zarr.get_label("segmentation").get_array()
+    some_zarr = open_some_zarr_container(some_zarr_2d)
+    written = some_zarr.get_label("segmentation").get_array()
     assert (written == 0).any()
 
 
@@ -335,10 +335,10 @@ def test_compute_segmentation_zero_background_preserved(ome_zarr_2d):
 
 
 @pytest.fixture
-def ome_zarr_2d_with_image_data(tmp_path):
-    """2D OME-Zarr with a single bright pixel in the DAPI channel."""
-    zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
-    image = ome_zarr.get_image()
+def some_zarr_2d_with_image_data(tmp_path):
+    """2D SOME-Zarr with a single bright pixel in the DAPI channel."""
+    zarr_path, some_zarr = _make_2d_zarr(tmp_path)
+    image = some_zarr.get_image()
     data = image.get_array()
     data[0, 30, 30] = 1000.0
     image.set_array(data)
@@ -346,14 +346,14 @@ def ome_zarr_2d_with_image_data(tmp_path):
     return zarr_path
 
 
-def test_iterator_pre_transform_gaussian_blur(ome_zarr_2d_with_image_data):
+def test_iterator_pre_transform_gaussian_blur(some_zarr_2d_with_image_data):
     """Pre-process transform (GaussianBlur) must be visible in the numpy array
     yielded by iter_as_numpy() before the segmentation function runs."""
     transform_cfg = SegmentationTransformConfig(
         pre_process=[GaussianBlurConfig(sigma_xy=2.0)]
     )
     iterator = setup_segmentation_iterator(
-        ome_zarr_2d_with_image_data,
+        some_zarr_2d_with_image_data,
         channels=_CHANNELS,
         segmentation_transform_config=transform_cfg,
     )
@@ -365,14 +365,14 @@ def test_iterator_pre_transform_gaussian_blur(ome_zarr_2d_with_image_data):
     assert input_img[0, 29, 30] > 0.0 or input_img[0, 31, 30] > 0.0
 
 
-def test_iterator_post_transform_size_filter(ome_zarr_2d):
+def test_iterator_post_transform_size_filter(some_zarr_2d):
     """Post-process transform (SizeFilter) must remove small objects from the
-    label array before the writer saves it to the OME-Zarr."""
+    label array before the writer saves it to the SOME-Zarr."""
     transform_cfg = SegmentationTransformConfig(
         post_process=[SizeFilterConfig(min_size=50)]
     )
     iterator = setup_segmentation_iterator(
-        ome_zarr_2d,
+        some_zarr_2d,
         channels=_CHANNELS,
         segmentation_transform_config=transform_cfg,
     )
@@ -384,8 +384,8 @@ def test_iterator_post_transform_size_filter(ome_zarr_2d):
     label[..., 40:43, 40:43] = 2
     writer(label)
 
-    ome_zarr = open_ome_zarr_container(ome_zarr_2d)
-    written = np.asarray(ome_zarr.get_label("segmentation").get_array())
+    some_zarr = open_some_zarr_container(some_zarr_2d)
+    written = np.asarray(some_zarr.get_label("segmentation").get_array())
 
     assert 1 in np.unique(written), "large object should be kept"
     assert 2 not in np.unique(written), "small object should be removed by SizeFilter"

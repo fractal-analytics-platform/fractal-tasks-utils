@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from ngio import ChannelSelectionModel, create_empty_ome_zarr
+from ngio import ChannelSelectionModel, create_empty_some_zarr
 from ngio.experimental.iterators import FeatureExtractorIterator
 
 import fractal_tasks_utils.measurement
@@ -18,34 +18,34 @@ from fractal_tasks_utils.measurement import (
 
 
 @pytest.fixture
-def ome_zarr_2d(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr with a derived label image."""
+def some_zarr_2d(tmp_path):
+    """Minimal 2-channel 2D SOME-Zarr with a derived label image."""
     zarr_path = str(tmp_path / "test.zarr")
-    ome_zarr = create_empty_ome_zarr(
+    some_zarr = create_empty_some_zarr(
         store=zarr_path,
         shape=(2, 64, 64),
         pixelsize=0.5,
         channels_meta=["DAPI", "GFP"],
         axes_names=["c", "y", "x"],
     )
-    ome_zarr.derive_label(name="nuclei", overwrite=True)
+    some_zarr.derive_label(name="nuclei", overwrite=True)
     return zarr_path
 
 
 @pytest.fixture
-def ome_zarr_with_roi_table(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr with a label and an image-level ROI table."""
+def some_zarr_with_roi_table(tmp_path):
+    """Minimal 2-channel 2D SOME-Zarr with a label and an image-level ROI table."""
     zarr_path = str(tmp_path / "test.zarr")
-    ome_zarr = create_empty_ome_zarr(
+    some_zarr = create_empty_some_zarr(
         store=zarr_path,
         shape=(2, 64, 64),
         pixelsize=0.5,
         channels_meta=["DAPI", "GFP"],
         axes_names=["c", "y", "x"],
     )
-    ome_zarr.derive_label(name="nuclei", overwrite=True)
-    roi_table = ome_zarr.build_image_roi_table()
-    ome_zarr.add_table(name="roi_table", table=roi_table)
+    some_zarr.derive_label(name="nuclei", overwrite=True)
+    roi_table = some_zarr.build_image_roi_table()
+    some_zarr.add_table(name="roi_table", table=roi_table)
     return zarr_path
 
 
@@ -88,15 +88,15 @@ def test_join_tables_custom_index():
 # ---------------------------------------------------------------------------
 
 
-def test_setup_measurement_iterator_default(ome_zarr_2d):
-    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei")
+def test_setup_measurement_iterator_default(some_zarr_2d):
+    iterator = setup_measurement_iterator(some_zarr_2d, "nuclei")
     assert isinstance(iterator, FeatureExtractorIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_measurement_iterator_channel_selection(ome_zarr_2d):
+def test_setup_measurement_iterator_channel_selection(some_zarr_2d):
     channels = [ChannelSelectionModel(mode="label", identifier="DAPI")]
-    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei", channels=channels)
+    iterator = setup_measurement_iterator(some_zarr_2d, "nuclei", channels=channels)
     assert isinstance(iterator, FeatureExtractorIterator)
     # Iterating should yield images with only 1 channel in the last axis
     for img_chunk, _lbl_chunk, _roi in iterator.iter_as_numpy():
@@ -104,27 +104,27 @@ def test_setup_measurement_iterator_channel_selection(ome_zarr_2d):
         break
 
 
-def test_setup_measurement_iterator_channels_none_includes_all(ome_zarr_2d):
-    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei", channels=None)
+def test_setup_measurement_iterator_channels_none_includes_all(some_zarr_2d):
+    iterator = setup_measurement_iterator(some_zarr_2d, "nuclei", channels=None)
     for img_chunk, _lbl_chunk, _roi in iterator.iter_as_numpy():
         assert img_chunk.shape[-1] == 2
         break
 
 
-def test_setup_measurement_iterator_with_table(ome_zarr_with_roi_table):
+def test_setup_measurement_iterator_with_table(some_zarr_with_roi_table):
     iterator = setup_measurement_iterator(
-        ome_zarr_with_roi_table, "nuclei", roi_table_names=["roi_table"]
+        some_zarr_with_roi_table, "nuclei", roi_table_names=["roi_table"]
     )
     assert isinstance(iterator, FeatureExtractorIterator)
     assert len(iterator.rois) > 0
 
 
-def test_setup_measurement_iterator_tables_none(ome_zarr_2d):
+def test_setup_measurement_iterator_tables_none(some_zarr_2d):
     iterator_no_table = setup_measurement_iterator(
-        ome_zarr_2d, "nuclei", roi_table_names=None
+        some_zarr_2d, "nuclei", roi_table_names=None
     )
     iterator_empty = setup_measurement_iterator(
-        ome_zarr_2d, "nuclei", roi_table_names=[]
+        some_zarr_2d, "nuclei", roi_table_names=[]
     )
     assert len(iterator_no_table.rois) == len(iterator_empty.rois)
 
@@ -134,8 +134,8 @@ def test_setup_measurement_iterator_tables_none(ome_zarr_2d):
 # ---------------------------------------------------------------------------
 
 
-def test_compute_measurement_basic(ome_zarr_2d):
-    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei")
+def test_compute_measurement_basic(some_zarr_2d):
+    iterator = setup_measurement_iterator(some_zarr_2d, "nuclei")
 
     def simple_func(img, label, roi):
         return {"label": [1, 2], "area": [10.0, 20.0]}
@@ -146,10 +146,10 @@ def test_compute_measurement_basic(ome_zarr_2d):
     assert "area" in df.columns
 
 
-def test_compute_measurement_empty_raises(ome_zarr_2d):
+def test_compute_measurement_empty_raises(some_zarr_2d):
     """An iterator that produces no ROIs causes compute_measurement to raise."""
     # Build an iterator and force its ROI list to be empty via product with empty ROIs
-    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei")
+    iterator = setup_measurement_iterator(some_zarr_2d, "nuclei")
     # Manually empty the ROI list by taking the product with an empty set
     empty_iterator = iterator.product([])
 

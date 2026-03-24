@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
-from ngio import ChannelSelectionModel, Roi, open_ome_zarr_container
+from ngio import ChannelSelectionModel, Roi, open_some_zarr_container
 from ngio.experimental.iterators import FeatureExtractorIterator
 from ngio.transforms import ZoomTransform
 
@@ -45,7 +45,7 @@ def setup_measurement_iterator(
     """Set up a FeatureExtractorIterator for measurement tasks.
 
     Args:
-        zarr_url: URL to the OME-Zarr container.
+        zarr_url: URL to the SOME-Zarr container.
         label_image_name: Name of the label image to analyze.
         level_path: Optional path to a specific resolution level of the image.
             If not provided, the highest resolution level is used.
@@ -60,15 +60,15 @@ def setup_measurement_iterator(
     logger = logging.getLogger("fractal_tasks_utils.setup_measurement_iterator")
     logger.info(f"{zarr_url=}")
 
-    ome_zarr = open_ome_zarr_container(zarr_url)
-    logger.info(f"{ome_zarr=}")
+    some_zarr = open_some_zarr_container(zarr_url)
+    logger.info(f"{some_zarr=}")
 
-    image = ome_zarr.get_image(path=level_path)
+    image = some_zarr.get_image(path=level_path)
     logger.info(f"{image=}")
 
     # Get the label at the closest resolution to the image (strict=False allows
     # a ZoomTransform to handle any resolution mismatch)
-    label_image = ome_zarr.get_label(
+    label_image = some_zarr.get_label(
         name=label_image_name, pixel_size=image.pixel_size, strict=False
     )
     logger.info(f"{label_image=}")
@@ -96,7 +96,7 @@ def setup_measurement_iterator(
 
     tables = roi_table_names if roi_table_names is not None else []
     for table_name in tables:
-        table = ome_zarr.get_generic_roi_table(table_name)
+        table = some_zarr.get_generic_roi_table(table_name)
         iterator = iterator.product(table)
 
     logger.info(f"Iterator created: {iterator=}")

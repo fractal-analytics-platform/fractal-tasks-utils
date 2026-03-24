@@ -5,7 +5,7 @@ import time
 from collections.abc import Callable
 
 import numpy as np
-from ngio import ChannelSelectionModel, OmeZarrContainer, open_ome_zarr_container
+from ngio import ChannelSelectionModel, SomeZarrContainer, open_some_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._masked_image import MaskedImage
 
@@ -20,15 +20,15 @@ from fractal_tasks_utils.segmentation._transforms import (
 
 
 def _load_masked_image(
-    ome_zarr: OmeZarrContainer,
+    some_zarr: SomeZarrContainer,
     masking_configuration: MaskingConfig,
     logger: logging.Logger,
     level_path: str | None = None,
 ) -> MaskedImage:
-    """Load a masked image from an OME-Zarr based on the masking configuration.
+    """Load a masked image from an SOME-Zarr based on the masking configuration.
 
     Args:
-        ome_zarr: The OME-Zarr container.
+        some_zarr: The SOME-Zarr container.
         masking_configuration (MaskingConfig): Configuration for masking.
         level_path (str | None): Optional path to a specific resolution level.
 
@@ -42,7 +42,7 @@ def _load_masked_image(
     logger.info(f"Using masking with {masking_table_name=}, {masking_label_name=}")
 
     # Base Iterator with masking
-    masked_image = ome_zarr.get_masked_image(
+    masked_image = some_zarr.get_masked_image(
         masking_label_name=masking_label_name,
         masking_table_name=masking_table_name,
         path=level_path,
@@ -65,11 +65,11 @@ def setup_segmentation_iterator(
     """Set up the segmentation iterator based on the provided configuration.
 
     Args:
-        zarr_url (str): URL to the OME-Zarr container
+        zarr_url (str): URL to the SOME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
         output_label_name (str): Name of the resulting label image.
-        level_path (str | None): If the OME-Zarr has multiple resolution levels,
+        level_path (str | None): If the SOME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
         iterator_configuration (IteratorConfiguration | None): Configuration
@@ -87,17 +87,17 @@ def setup_segmentation_iterator(
     # Use the first of input_paths
     logger.info(f"{zarr_url=}")
 
-    # Open the OME-Zarr container
-    ome_zarr = open_ome_zarr_container(zarr_url)
-    logger.info(f"{ome_zarr=}")
+    # Open the SOME-Zarr container
+    some_zarr = open_some_zarr_container(zarr_url)
+    logger.info(f"{some_zarr=}")
     # Validate that the specified channels are present in the image
-    # if _skip_segmentation(channels=channels, ome_zarr=ome_zarr):
+    # if _skip_segmentation(channels=channels, some_zarr=some_zarr):
     #    return None
     logger.info(f"Formatted label name: {output_label_name=}")
 
     # Derive the label and an get it at the specified level path
-    ome_zarr.derive_label(name=output_label_name, overwrite=overwrite)
-    label = ome_zarr.get_label(name=output_label_name, path=level_path)
+    some_zarr.derive_label(name=output_label_name, overwrite=overwrite)
+    label = some_zarr.get_label(name=output_label_name, path=level_path)
     logger.info(f"Derived label image: {label=}")
 
     # Set up the appropriate iterator based on the configuration
@@ -105,7 +105,7 @@ def setup_segmentation_iterator(
         iterator_configuration = IteratorConfig()
 
     # Determine if we are doing 3D segmentation or 2D
-    axes_order = "czyx" if ome_zarr.is_3d else "cyx"
+    axes_order = "czyx" if some_zarr.is_3d else "cyx"
     logger.info(f"Segmenting using {axes_order=}")
 
     if segmentation_transform_config is None:
@@ -113,7 +113,7 @@ def setup_segmentation_iterator(
 
     if isinstance(iterator_configuration.masking, NoMaskingConfig):
         # Create a basic SegmentationIterator without masking
-        image = ome_zarr.get_image(path=level_path)
+        image = some_zarr.get_image(path=level_path)
         logger.info(f"{image=}")
         iterator = SegmentationIterator(
             input_image=image,
@@ -126,7 +126,7 @@ def setup_segmentation_iterator(
     else:
         # Since masking is requested, we need to determine load a masking image
         masked_image = _load_masked_image(
-            ome_zarr=ome_zarr,
+            some_zarr=some_zarr,
             masking_configuration=iterator_configuration.masking,
             level_path=level_path,
             logger=logger,
@@ -156,7 +156,7 @@ def setup_segmentation_iterator(
         # the iteration to the ROIs defined in the table
         # Be aware that this is not an alternative to masking
         # but only an additional restriction
-        table = ome_zarr.get_generic_roi_table(name=iterator_configuration.roi_table)
+        table = some_zarr.get_generic_roi_table(name=iterator_configuration.roi_table)
         logger.info(f"ROI table retrieved: {table=}")
         iterator = iterator.product(table)
         logger.info(f"Iterator updated with ROI table: {iterator=}")
@@ -170,9 +170,9 @@ def compute_segmentation(
 ) -> None:
     """Core computation loop for applying the segmentation function.
 
-    This function iterates over the image over the specifed patterns in
+    This function iterates over the image over the specified patterns in
     the iterator, applies the segmentation function to each chunk of the image,
-    and writes the resulting label images back to the OME-Zarr.
+    and writes the resulting label images back to the SOME-Zarr.
 
     Args:
         segmentation_func: The segmentation function to apply to each image chunk.
