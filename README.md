@@ -4,7 +4,7 @@ General utilities for building [Fractal](https://fractal-analytics-platform.gith
 
 ## Modules
 
-- **segmentation** — utilities for running segmentation models over SOME-Zarr images (`compute_segmentation`, `setup_segmentation_iterator`, `IteratorConfiguration`, `MaskingConfiguration`)
+- **segmentation** — utilities for running segmentation models over OME-Zarr images (`compute_segmentation`, `setup_segmentation_iterator`, `IteratorConfiguration`, `MaskingConfiguration`)
 - **transforms** — standard image transforms (`GaussianBlurConfig`, `MedianFilterConfig`, `HistogramEqualizationConfig`, `SizeFilterConfig`)
 - **measurement** — utilities for computing measurements (WIP)
 

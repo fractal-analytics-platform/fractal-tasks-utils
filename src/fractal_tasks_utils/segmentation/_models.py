@@ -30,8 +30,8 @@ class MaskingConfig(BaseModel):
     """
     Mode of masking to be applied.
         - If "Table Name", the identifier refers to a table name. This must identify
-        a valid masking ROI table in the SOME-Zarr.
-        - If "Label Name", the identifier refers to a label image name in the SOME-Zarr.
+        a valid masking ROI table in the ome-Zarr.
+        - If "Label Name", the identifier refers to a label image name in the ome-Zarr.
         In this case, the masking roi table will be built on the fly from the label
         image.
     """
