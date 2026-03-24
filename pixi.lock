@@ -596,8 +596,8 @@ packages:
   requires_python: '>=3.10'
 - pypi: ./
   name: fractal-tasks-utils
-  version: 0.1.1
-  sha256: 1caa4729afd39c2f930497a36b6e159e623d0358b30234c321d418fbdb96268e
+  version: 0.1.4.dev5+g7ed5a9bf3
+  sha256: bf3c616fcd86b31694b73b068601c1ac4d0a33ad5a9ef8566d9dc74d2517f7de
   requires_dist:
   - ngio>0.5.0,<0.6.0
   - numpy

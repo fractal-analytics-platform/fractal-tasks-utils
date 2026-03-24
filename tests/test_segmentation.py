@@ -12,6 +12,7 @@ from fractal_tasks_utils.segmentation._compute import (
 from fractal_tasks_utils.segmentation._models import (
     IteratorConfig,
     MaskingConfig,
+    NoMaskingConfig,
 )
 from fractal_tasks_utils.segmentation._transforms import SegmentationTransformConfig
 from fractal_tasks_utils.transforms._transforms import (
@@ -43,14 +44,14 @@ def _make_2d_zarr(tmp_path, name="test.zarr"):
 
 @pytest.fixture
 def ome_zarr_2d(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr."""
+    """Minimal 2-channel 2D ome-Zarr."""
     zarr_path, _ = _make_2d_zarr(tmp_path)
     return zarr_path
 
 
 @pytest.fixture
 def ome_zarr_3d(tmp_path):
-    """Minimal 2-channel 3D OME-Zarr."""
+    """Minimal 2-channel 3D ome-Zarr."""
     zarr_path = str(tmp_path / "test3d.zarr")
     create_empty_ome_zarr(
         store=zarr_path,
@@ -65,7 +66,7 @@ def ome_zarr_3d(tmp_path):
 
 @pytest.fixture
 def ome_zarr_with_masking_label(tmp_path):
-    """2D OME-Zarr with a masking label ('organoids') containing 2 non-zero regions."""
+    """2D ome-Zarr with a masking label ('organoids') containing 2 non-zero regions."""
     zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
     ome_zarr.derive_label(name="organoids", overwrite=True)
     lbl = ome_zarr.get_label("organoids")
@@ -79,7 +80,7 @@ def ome_zarr_with_masking_label(tmp_path):
 
 @pytest.fixture
 def ome_zarr_with_masking_table(tmp_path):
-    """2D OME-Zarr with a masking ROI table built from the 'organoids' label."""
+    """2D ome-Zarr with a masking ROI table built from the 'organoids' label."""
     zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
     ome_zarr.derive_label(name="organoids", overwrite=True)
     lbl = ome_zarr.get_label("organoids")
@@ -95,7 +96,7 @@ def ome_zarr_with_masking_table(tmp_path):
 
 @pytest.fixture
 def ome_zarr_with_roi_table(tmp_path):
-    """2D OME-Zarr with an image-level iteration ROI table."""
+    """2D ome-Zarr with an image-level iteration ROI table."""
     zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
     roi_table = ome_zarr.build_image_roi_table()
     ome_zarr.add_table(name="roi_table", table=roi_table)
@@ -107,15 +108,10 @@ def ome_zarr_with_roi_table(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_masking_configuration_defaults():
-    cfg = MaskingConfig()
-    assert cfg.mode == "Table Name"
-    assert cfg.identifier is None
-
-
 def test_masking_configuration_label_name_mode():
-    cfg = MaskingConfig(mode="Label Name", identifier="nuclei")
-    assert cfg.mode == "Label Name"
+    cfg = MaskingConfig(masking_source="Label Name", identifier="nuclei")
+    assert cfg.mode == "Masking"
+    assert cfg.masking_source == "Label Name"
     assert cfg.identifier == "nuclei"
 
 
@@ -126,20 +122,21 @@ def test_masking_configuration_label_name_mode():
 
 def test_iterator_configuration_defaults():
     cfg = IteratorConfig()
-    assert cfg.masking is None
+    assert isinstance(cfg.masking, NoMaskingConfig)
     assert cfg.roi_table is None
 
 
 def test_iterator_configuration_with_masking():
-    cfg = IteratorConfig(masking=MaskingConfig(mode="Table Name"))
+    cfg = IteratorConfig(masking=MaskingConfig(identifier="masking_table"))
     assert isinstance(cfg.masking, MaskingConfig)
-    assert cfg.masking.mode == "Table Name"
+    assert cfg.masking.masking_source == "Table Name"
+    assert cfg.masking.identifier == "masking_table"
 
 
 def test_iterator_configuration_with_roi_table():
     cfg = IteratorConfig(roi_table="FOV_ROI_table")
     assert cfg.roi_table == "FOV_ROI_table"
-    assert cfg.masking is None
+    assert isinstance(cfg.masking, NoMaskingConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +188,7 @@ def test__load_masked_image_by_table_name(ome_zarr_with_masking_table, caplog):
     import logging
 
     ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_table)
-    cfg = MaskingConfig(mode="Table Name", identifier="masking_table")
+    cfg = MaskingConfig(masking_source="Table Name", identifier="organoids")
     logger = logging.getLogger("test")
     masked = _load_masked_image(ome_zarr, cfg, logger)
     assert isinstance(masked, MaskedImage)
@@ -201,7 +198,7 @@ def test__load_masked_image_by_label_name(ome_zarr_with_masking_label):
     import logging
 
     ome_zarr = open_ome_zarr_container(ome_zarr_with_masking_label)
-    cfg = MaskingConfig(mode="Label Name", identifier="organoids")
+    cfg = MaskingConfig(masking_source="Label Name", identifier="organoids")
     logger = logging.getLogger("test")
     masked = _load_masked_image(ome_zarr, cfg, logger)
     assert isinstance(masked, MaskedImage)
@@ -225,7 +222,7 @@ def test_setup_segmentation_iterator_3d(ome_zarr_3d):
 
 
 def test_setup_segmentation_iterator_masked_table(ome_zarr_with_masking_table):
-    mc = MaskingConfig(mode="Table Name", identifier="masking_table")
+    mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
         ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
@@ -235,7 +232,7 @@ def test_setup_segmentation_iterator_masked_table(ome_zarr_with_masking_table):
 
 
 def test_setup_segmentation_iterator_masked_label(ome_zarr_with_masking_label):
-    mc = MaskingConfig(mode="Label Name", identifier="organoids")
+    mc = MaskingConfig(masking_source="Label Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
         ome_zarr_with_masking_label, channels=_CHANNELS, iterator_configuration=ic
@@ -292,7 +289,7 @@ def test_compute_segmentation_basic(ome_zarr_2d):
 
 def test_compute_segmentation_label_uniqueness(ome_zarr_with_masking_table):
     """Labels from different ROIs must be offset so they don't collide."""
-    mc = MaskingConfig(mode="Table Name", identifier="masking_table")
+    mc = MaskingConfig(masking_source="Table Name", identifier="organoids")
     ic = IteratorConfig(masking=mc)
     iterator = setup_segmentation_iterator(
         ome_zarr_with_masking_table, channels=_CHANNELS, iterator_configuration=ic
@@ -339,7 +336,7 @@ def test_compute_segmentation_zero_background_preserved(ome_zarr_2d):
 
 @pytest.fixture
 def ome_zarr_2d_with_image_data(tmp_path):
-    """2D OME-Zarr with a single bright pixel in the DAPI channel."""
+    """2D ome-Zarr with a single bright pixel in the DAPI channel."""
     zarr_path, ome_zarr = _make_2d_zarr(tmp_path)
     image = ome_zarr.get_image()
     data = image.get_array()
@@ -370,7 +367,7 @@ def test_iterator_pre_transform_gaussian_blur(ome_zarr_2d_with_image_data):
 
 def test_iterator_post_transform_size_filter(ome_zarr_2d):
     """Post-process transform (SizeFilter) must remove small objects from the
-    label array before the writer saves it to the OME-Zarr."""
+    label array before the writer saves it to the ome-Zarr."""
     transform_cfg = SegmentationTransformConfig(
         post_process=[SizeFilterConfig(min_size=50)]
     )

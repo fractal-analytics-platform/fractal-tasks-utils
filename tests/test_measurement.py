@@ -19,7 +19,7 @@ from fractal_tasks_utils.measurement import (
 
 @pytest.fixture
 def ome_zarr_2d(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr with a derived label image."""
+    """Minimal 2-channel 2D ome-Zarr with a derived label image."""
     zarr_path = str(tmp_path / "test.zarr")
     ome_zarr = create_empty_ome_zarr(
         store=zarr_path,
@@ -34,7 +34,7 @@ def ome_zarr_2d(tmp_path):
 
 @pytest.fixture
 def ome_zarr_with_roi_table(tmp_path):
-    """Minimal 2-channel 2D OME-Zarr with a label and an image-level ROI table."""
+    """Minimal 2-channel 2D ome-Zarr with a label and an image-level ROI table."""
     zarr_path = str(tmp_path / "test.zarr")
     ome_zarr = create_empty_ome_zarr(
         store=zarr_path,

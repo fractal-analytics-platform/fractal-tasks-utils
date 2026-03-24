@@ -12,6 +12,7 @@ from ngio.images._masked_image import MaskedImage
 from fractal_tasks_utils.segmentation._models import (
     IteratorConfig,
     MaskingConfig,
+    NoMaskingConfig,
 )
 from fractal_tasks_utils.segmentation._transforms import (
     SegmentationTransformConfig,
@@ -24,10 +25,10 @@ def _load_masked_image(
     logger: logging.Logger,
     level_path: str | None = None,
 ) -> MaskedImage:
-    """Load a masked image from an OME-Zarr based on the masking configuration.
+    """Load a masked image from an ome-Zarr based on the masking configuration.
 
     Args:
-        ome_zarr: The OME-Zarr container.
+        ome_zarr: The ome-Zarr container.
         masking_configuration (MaskingConfig): Configuration for masking.
         level_path (str | None): Optional path to a specific resolution level.
 
@@ -64,11 +65,11 @@ def setup_segmentation_iterator(
     """Set up the segmentation iterator based on the provided configuration.
 
     Args:
-        zarr_url (str): URL to the OME-Zarr container
+        zarr_url (str): URL to the ome-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
         output_label_name (str): Name of the resulting label image.
-        level_path (str | None): If the OME-Zarr has multiple resolution levels,
+        level_path (str | None): If the ome-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
         iterator_configuration (IteratorConfiguration | None): Configuration
@@ -86,7 +87,7 @@ def setup_segmentation_iterator(
     # Use the first of input_paths
     logger.info(f"{zarr_url=}")
 
-    # Open the OME-Zarr container
+    # Open the ome-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
     logger.info(f"{ome_zarr=}")
     # Validate that the specified channels are present in the image
@@ -110,7 +111,7 @@ def setup_segmentation_iterator(
     if segmentation_transform_config is None:
         segmentation_transform_config = SegmentationTransformConfig()
 
-    if iterator_configuration.masking is None:
+    if isinstance(iterator_configuration.masking, NoMaskingConfig):
         # Create a basic SegmentationIterator without masking
         image = ome_zarr.get_image(path=level_path)
         logger.info(f"{image=}")
@@ -169,9 +170,9 @@ def compute_segmentation(
 ) -> None:
     """Core computation loop for applying the segmentation function.
 
-    This function iterates over the image over the specifed patterns in
+    This function iterates over the image over the specified patterns in
     the iterator, applies the segmentation function to each chunk of the image,
-    and writes the resulting label images back to the OME-Zarr.
+    and writes the resulting label images back to the ome-Zarr.
 
     Args:
         segmentation_func: The segmentation function to apply to each image chunk.

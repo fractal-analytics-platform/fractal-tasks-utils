@@ -21,8 +21,3 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-
-  - repo: https://github.com/astral-sh/ty
-    rev: 0.0.21
-    hooks:
-      - id: ty
