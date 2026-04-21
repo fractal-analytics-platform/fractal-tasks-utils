@@ -33,7 +33,7 @@ def _load_masked_image(
         level_path (str | None): Optional path to a specific resolution level.
 
     """
-    if masking_configuration.mode == "Table Name":
+    if masking_configuration.masking_source == "Table Name":
         masking_table_name = masking_configuration.identifier
         masking_label_name = None
     else:
