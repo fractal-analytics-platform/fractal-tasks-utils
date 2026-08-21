@@ -5,9 +5,13 @@ import time
 from collections.abc import Callable
 
 import numpy as np
-from ngio import ChannelSelectionModel, OmeZarrContainer, open_ome_zarr_container
-from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
-from ngio.images._masked_image import MaskedImage
+from ngio import (
+    ChannelSelectionModel,
+    MaskedImage,
+    OmeZarrContainer,
+    open_ome_zarr_container,
+)
+from ngio.iterators import MaskedSegmentationIterator, SegmentationIterator
 
 from fractal_tasks_utils.segmentation._models import (
     IteratorConfig,
@@ -122,6 +126,7 @@ def setup_segmentation_iterator(
             axes_order=axes_order,
             input_transforms=segmentation_transform_config.to_pre_transforms(),
             output_transforms=segmentation_transform_config.to_post_transforms(),
+            consolidation_mode="auto",
         )
     else:
         # Since masking is requested, we need to determine load a masking image
@@ -144,6 +149,7 @@ def setup_segmentation_iterator(
             axes_order=axes_order,
             input_transforms=segmentation_transform_config.to_pre_transforms(),
             output_transforms=segmentation_transform_config.to_post_transforms(),
+            consolidation_mode="auto",
         )
     # Make sure that if we have a time axis, we iterate over it
     # Strict=False means that if there no z axis or z is size 1, it will still work

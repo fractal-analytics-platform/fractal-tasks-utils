@@ -5,9 +5,7 @@ from functools import partial
 from typing import Annotated, Literal
 
 import numpy as np
-from dask import array as da
-from ngio.io_pipes._ops_axes import AxesOps
-from ngio.io_pipes._ops_slices import SlicingOps
+from ngio.transforms import IoPipeContext
 from pydantic import BaseModel, Field
 from skimage.exposure import equalize_adapthist
 from skimage.filters import gaussian, median
@@ -69,31 +67,16 @@ class GaussianBlurTransform:
                 sigma.append(0)  # No blurring for non-spatial axes
         return self._gaussian(image, sigma=sigma)
 
-    def get_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Apply Gaussian blur transformation to a numpy array."""
-        return self.apply(array, axes=axes_ops.output_axes)
+    def on_get(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Apply Gaussian blur transformation to an array read from disk."""
+        if not isinstance(array, np.ndarray):
+            raise NotImplementedError(
+                "Gaussian blur transformation is not implemented for dask arrays yet."
+            )
+        return self.apply(array, axes=ctx.axes)
 
-    def get_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Apply Gaussian blur transformation to a dask array."""
-        # apply the Gaussian filter to each chunk of the dask array using map_blocks
-        raise NotImplementedError(
-            "Gaussian blur transformation is not implemented for dask arrays yet."
-        )
-
-    def set_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Get Gaussian blur transformation applied before writing a numpy array."""
-        return array
-
-    def set_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Get Gaussian blur transformation applied before writing a dask array."""
+    def on_set(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Return the array unchanged before writing (no inverse blur)."""
         return array
 
 
@@ -176,30 +159,16 @@ class MedianFilterTransform:
                 footprint_shape.append(1)  # No filtering for non-spatial axes
         return median(image, footprint=np.ones(footprint_shape, dtype=bool))
 
-    def get_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Apply Median filter transformation to a numpy array."""
-        return self.apply(array, axes=axes_ops.output_axes)
+    def on_get(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Apply Median filter transformation to an array read from disk."""
+        if not isinstance(array, np.ndarray):
+            raise NotImplementedError(
+                "Median filter transformation is not implemented for dask arrays yet."
+            )
+        return self.apply(array, axes=ctx.axes)
 
-    def get_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Apply Median filter transformation to a dask array."""
-        raise NotImplementedError(
-            "Median filter transformation is not implemented for dask arrays yet."
-        )
-
-    def set_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Get Median filter transformation applied before writing a numpy array."""
-        return array
-
-    def set_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Get Median filter transformation applied before writing a dask array."""
+    def on_set(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Return the array unchanged before writing (no inverse filter)."""
         return array
 
 
@@ -291,30 +260,16 @@ class HistogramEqualizationTransform:
             nbins=self.nbins,
         )
 
-    def get_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Apply histogram equalization transformation to a numpy array."""
-        return self.apply(array, axes=axes_ops.output_axes)
+    def on_get(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Apply histogram equalization to an array read from disk."""
+        if not isinstance(array, np.ndarray):
+            raise NotImplementedError(
+                "Histogram equalization is not implemented for dask arrays yet."
+            )
+        return self.apply(array, axes=ctx.axes)
 
-    def get_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Apply histogram equalization transformation to a dask array."""
-        raise NotImplementedError(
-            "Histogram equalization is not implemented for dask arrays yet."
-        )
-
-    def set_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Get histogram equalization applied before writing a numpy array."""
-        return array
-
-    def set_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Get histogram equalization applied before writing a dask array."""
+    def on_set(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Return the array unchanged before writing (no inverse equalization)."""
         return array
 
 
@@ -374,33 +329,21 @@ class SizeFilterTransform:
         """
         return remove_small_objects(labels, max_size=self.min_size)
 
-    def get_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Apply size filter transformation to a numpy array."""
+    def on_get(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Apply size filter transformation to an array read from disk."""
+        if not isinstance(array, np.ndarray):
+            raise NotImplementedError(
+                "Size filter transformation is not implemented for dask arrays yet."
+            )
         return self.apply(array)
 
-    def get_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Apply size filter transformation to a dask array."""
-        raise NotImplementedError(
-            "Size filter transformation is not implemented for dask arrays yet."
-        )
-
-    def set_as_numpy_transform(
-        self, array: np.ndarray, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> np.ndarray:
-        """Get size filter transformation applied before writing a numpy array."""
+    def on_set(self, array: np.ndarray, ctx: IoPipeContext) -> np.ndarray:
+        """Apply size filter transformation before writing an array."""
+        if not isinstance(array, np.ndarray):
+            raise NotImplementedError(
+                "Size filter transformation is not implemented for dask arrays yet."
+            )
         return self.apply(array)
-
-    def set_as_dask_transform(
-        self, array: da.Array, slicing_ops: SlicingOps, axes_ops: AxesOps
-    ) -> da.Array:
-        """Get size filter transformation applied before writing a dask array."""
-        raise NotImplementedError(
-            "Size filter transformation is not implemented for dask arrays yet."
-        )
 
 
 class SizeFilterConfig(BaseModel):

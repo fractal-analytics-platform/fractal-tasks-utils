@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 from ngio import ChannelSelectionModel, create_empty_ome_zarr
-from ngio.experimental.iterators import FeatureExtractorIterator
+from ngio.iterators import FeatureExtractorIterator
 
 import fractal_tasks_utils.measurement
 from fractal_tasks_utils.measurement import (
