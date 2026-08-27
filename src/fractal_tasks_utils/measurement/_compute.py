@@ -6,7 +6,7 @@ from collections.abc import Callable
 import numpy as np
 import pandas as pd
 from ngio import ChannelSelectionModel, Roi, open_ome_zarr_container
-from ngio.experimental.iterators import FeatureExtractorIterator
+from ngio.iterators import FeatureExtractorIterator
 from ngio.transforms import ZoomTransform
 
 

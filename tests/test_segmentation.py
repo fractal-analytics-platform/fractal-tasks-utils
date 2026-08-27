@@ -1,8 +1,12 @@
 import numpy as np
 import pytest
-from ngio import ChannelSelectionModel, create_empty_ome_zarr, open_ome_zarr_container
-from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
-from ngio.images._masked_image import MaskedImage
+from ngio import (
+    ChannelSelectionModel,
+    MaskedImage,
+    create_empty_ome_zarr,
+    open_ome_zarr_container,
+)
+from ngio.iterators import MaskedSegmentationIterator, SegmentationIterator
 
 from fractal_tasks_utils.segmentation._compute import (
     _load_masked_image,
@@ -74,7 +78,7 @@ def ome_zarr_with_masking_label(tmp_path):
     data[5:25, 5:25] = 1
     data[35:55, 35:55] = 2
     lbl.set_array(data)
-    lbl.consolidate()
+    lbl.consolidate(mode="auto")
     return zarr_path
 
 
@@ -88,7 +92,7 @@ def ome_zarr_with_masking_table(tmp_path):
     data[5:25, 5:25] = 1
     data[35:55, 35:55] = 2
     lbl.set_array(data)
-    lbl.consolidate()
+    lbl.consolidate(mode="auto")
     masking_table = ome_zarr.build_masking_roi_table("organoids")
     ome_zarr.add_table(name="masking_table", table=masking_table)
     return zarr_path
@@ -342,7 +346,7 @@ def ome_zarr_2d_with_image_data(tmp_path):
     data = image.get_array()
     data[0, 30, 30] = 1000.0
     image.set_array(data)
-    image.consolidate()
+    image.consolidate(mode="auto")
     return zarr_path
 
 
