@@ -11,8 +11,15 @@ from ngio import (
     OmeZarrContainer,
     open_ome_zarr_container,
 )
+from ngio.common import ConsolidationMode
 from ngio.iterators import MaskedSegmentationIterator, SegmentationIterator
 
+from fractal_tasks_utils._iteration import (
+    IterateBy,
+    apply_iterate_by,
+    resolve_iterate_by,
+    validate_axes_order,
+)
 from fractal_tasks_utils.segmentation._models import (
     IteratorConfig,
     MaskingConfig,
@@ -63,7 +70,10 @@ def setup_segmentation_iterator(
     # Iteration parameters
     iterator_configuration: IteratorConfig | None = None,
     segmentation_transform_config: SegmentationTransformConfig | None = None,
+    axes_order: str | None = None,
+    iterate_by: IterateBy | None = None,
     # Other parameters
+    consolidation_mode: ConsolidationMode = "auto",
     overwrite: bool = True,
 ) -> SegmentationIterator | MaskedSegmentationIterator:
     """Set up the segmentation iterator based on the provided configuration.
@@ -82,8 +92,29 @@ def setup_segmentation_iterator(
         segmentation_transform_config (SegmentationTransformConfig | None):
             Configuration for pre- and post-processing transformations. If not
             provided, no additional transformations will be applied.
+        axes_order (str | None): Axes order of the patches handed to the
+            segmentation function. If not provided, "czyx" is used for 3D
+            images and "cyx" for 2D ones. An axis the image does not have is
+            added as a singleton, so a function that always wants a 4D patch
+            can ask for "czyx" regardless of whether the data is 2D or 3D.
+        iterate_by (IterateBy | None): How much of the image a single
+            iteration covers. "by_zyx" hands over the full z/y/x extent,
+            "by_yx" hands over one z plane at a time. If not provided, it is
+            inferred from `axes_order`: an order carrying "z" asks for
+            "by_zyx", one without it asks for "by_yx". Pass it explicitly to
+            combine the two, e.g. axes_order="czyx" with iterate_by="by_yx"
+            runs a 2D function on every plane while keeping the singleton z
+            axis in the patch.
         custom_model (str | None): Path to a custom Cellpose model. If not
             set, the default "cpsam" model will be used.
+        consolidation_mode (ConsolidationMode): How the output pyramid is
+            rebuilt after iteration. "auto" (the default) builds a small
+            pyramid in memory and falls back to the chunked dask path above
+            ngio's `consolidation.numpy_max_bytes` (256 MB by default).
+            "dask" always takes the chunked path, "numpy" always takes the
+            in-memory one, and "coarsen" is the cheapest option for label
+            images. On very large images, pass an explicit mode if the
+            "auto" choice does not fit the available memory.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
@@ -94,9 +125,6 @@ def setup_segmentation_iterator(
     # Open the ome-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
     logger.info(f"{ome_zarr=}")
-    # Validate that the specified channels are present in the image
-    # if _skip_segmentation(channels=channels, ome_zarr=ome_zarr):
-    #    return None
     logger.info(f"Formatted label name: {output_label_name=}")
 
     # Derive the label and an get it at the specified level path
@@ -109,8 +137,15 @@ def setup_segmentation_iterator(
         iterator_configuration = IteratorConfig()
 
     # Determine if we are doing 3D segmentation or 2D
-    axes_order = "czyx" if ome_zarr.is_3d else "cyx"
-    logger.info(f"Segmenting using {axes_order=}")
+    # Determine if we are doing 3D segmentation or 2D
+    if axes_order is None:
+        axes_order = "czyx" if ome_zarr.is_3d else "cyx"
+    else:
+        validate_axes_order(axes_order)
+    iterate_by = resolve_iterate_by(
+        axes_order=axes_order, iterate_by=iterate_by, is_3d=ome_zarr.is_3d
+    )
+    logger.info(f"Segmenting using {axes_order=} {iterate_by=}")
 
     if segmentation_transform_config is None:
         segmentation_transform_config = SegmentationTransformConfig()
@@ -126,7 +161,7 @@ def setup_segmentation_iterator(
             axes_order=axes_order,
             input_transforms=segmentation_transform_config.to_pre_transforms(),
             output_transforms=segmentation_transform_config.to_post_transforms(),
-            consolidation_mode="auto",
+            consolidation_mode=consolidation_mode,
         )
     else:
         # Since masking is requested, we need to determine load a masking image
@@ -149,12 +184,11 @@ def setup_segmentation_iterator(
             axes_order=axes_order,
             input_transforms=segmentation_transform_config.to_pre_transforms(),
             output_transforms=segmentation_transform_config.to_post_transforms(),
-            consolidation_mode="auto",
+            consolidation_mode=consolidation_mode,
         )
-    # Make sure that if we have a time axis, we iterate over it
-    # Strict=False means that if there no z axis or z is size 1, it will still work
-    # If your segmentation needs requires a volume, use strict=True
-    iterator = iterator.by_zyx(strict=False)
+    # Split the ROIs into the requested iteration unit. Either unit also
+    # splits a time axis, so we always iterate over it if there is one.
+    iterator = apply_iterate_by(iterator, iterate_by)
     logger.info(f"Iterator created: {iterator=}")
 
     if iterator_configuration.roi_table is not None:

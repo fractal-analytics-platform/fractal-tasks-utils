@@ -245,6 +245,126 @@ def test_setup_segmentation_iterator_masked_label(ome_zarr_with_masking_label):
     assert len(iterator.rois) > 0
 
 
+def _first_patch(iterator):
+    """Return the first image patch the iterator hands over."""
+    patch, _writer = next(iter(iterator.iter_as_numpy()))
+    return patch
+
+
+def test_setup_segmentation_iterator_default_axes_3d(ome_zarr_3d):
+    """The default on 3D data is one whole volume per t."""
+    iterator = setup_segmentation_iterator(ome_zarr_3d, channels=_CHANNELS)
+    assert len(iterator.rois) == 1
+    assert _first_patch(iterator).shape == (1, 4, 32, 32)
+
+
+def test_setup_segmentation_iterator_default_axes_2d(ome_zarr_2d):
+    """The default on 2D data squeezes z away and yields a single plane."""
+    iterator = setup_segmentation_iterator(ome_zarr_2d, channels=_CHANNELS)
+    assert len(iterator.rois) == 1
+    assert _first_patch(iterator).shape == (1, 64, 64)
+
+
+def test_setup_segmentation_iterator_czyx_by_yx_on_3d(ome_zarr_3d):
+    """ "czyx" with by_yx iteration runs a 2D function but keeps a singleton z."""
+    iterator = setup_segmentation_iterator(
+        ome_zarr_3d, channels=_CHANNELS, axes_order="czyx", iterate_by="by_yx"
+    )
+    assert len(iterator.rois) == 4
+    assert _first_patch(iterator).shape == (1, 1, 32, 32)
+
+
+def test_setup_segmentation_iterator_czyx_on_2d(ome_zarr_2d):
+    """A 2/3D-agnostic function can ask for "czyx" even without a z axis."""
+    iterator = setup_segmentation_iterator(
+        ome_zarr_2d, channels=_CHANNELS, axes_order="czyx"
+    )
+    assert len(iterator.rois) == 1
+    assert _first_patch(iterator).shape == (1, 1, 64, 64)
+
+
+def test_setup_segmentation_iterator_transposed_axes_order(ome_zarr_3d):
+    """Validation is order-insensitive: a transposed order is accepted."""
+    iterator = setup_segmentation_iterator(
+        ome_zarr_3d, channels=_CHANNELS, axes_order="zyxc"
+    )
+    assert len(iterator.rois) == 1
+    assert _first_patch(iterator).shape == (4, 32, 32, 1)
+
+
+def test_setup_segmentation_iterator_by_zyx_without_z_on_3d(ome_zarr_3d):
+    """Asking for whole volumes from a z-less axes order on 3D data is refused."""
+    with pytest.raises(ValueError, match="iterate_by='by_zyx' needs a z axis"):
+        setup_segmentation_iterator(
+            ome_zarr_3d, channels=_CHANNELS, axes_order="cyx", iterate_by="by_zyx"
+        )
+
+
+def test_setup_segmentation_iterator_by_zyx_without_z_on_2d(ome_zarr_2d):
+    """The same pairing is harmless on 2D data, where both units coincide."""
+    iterator = setup_segmentation_iterator(
+        ome_zarr_2d, channels=_CHANNELS, axes_order="cyx", iterate_by="by_zyx"
+    )
+    assert len(iterator.rois) == 1
+    assert _first_patch(iterator).shape == (1, 64, 64)
+
+
+@pytest.mark.parametrize(
+    ("axes_order", "match"),
+    [
+        ("abc", "unknown axes"),
+        ("cczyx", "repeats axes"),
+        ("czy", "missing the required axes"),
+    ],
+)
+def test_setup_segmentation_iterator_invalid_axes_order(ome_zarr_2d, axes_order, match):
+    with pytest.raises(ValueError, match=match):
+        setup_segmentation_iterator(
+            ome_zarr_2d, channels=_CHANNELS, axes_order=axes_order
+        )
+
+
+def test_setup_segmentation_iterator_masked_axes_order(ome_zarr_with_masking_table):
+    """The masked branch threads axes_order through too."""
+    mc = MaskingConfig(masking_source="Table Name", identifier="masking_table")
+    ic = IteratorConfig(masking=mc)
+    iterator = setup_segmentation_iterator(
+        ome_zarr_with_masking_table,
+        channels=_CHANNELS,
+        iterator_configuration=ic,
+        axes_order="czyx",
+    )
+    assert isinstance(iterator, MaskedSegmentationIterator)
+    assert _first_patch(iterator).ndim == 4
+
+
+def test_setup_segmentation_iterator_default_consolidation_mode(ome_zarr_2d):
+    iterator = setup_segmentation_iterator(ome_zarr_2d, channels=_CHANNELS)
+    assert iterator._get_init_kwargs()["consolidation_mode"] == "auto"
+
+
+def test_setup_segmentation_iterator_custom_consolidation_mode(ome_zarr_2d):
+    iterator = setup_segmentation_iterator(
+        ome_zarr_2d, channels=_CHANNELS, consolidation_mode="dask"
+    )
+    assert iterator._get_init_kwargs()["consolidation_mode"] == "dask"
+
+
+def test_setup_segmentation_iterator_masked_consolidation_mode(
+    ome_zarr_with_masking_table,
+):
+    mc = MaskingConfig(masking_source="Table Name", identifier="masking_table")
+    ic = IteratorConfig(masking=mc)
+    iterator = setup_segmentation_iterator(
+        ome_zarr_with_masking_table,
+        channels=_CHANNELS,
+        iterator_configuration=ic,
+        consolidation_mode="coarsen",
+    )
+    assert isinstance(iterator, MaskedSegmentationIterator)
+    assert iterator._get_init_kwargs()["consolidation_mode"] == "coarsen"
+
+
 def test_setup_segmentation_iterator_with_roi_table(ome_zarr_with_roi_table):
     ic = IteratorConfig(roi_table="roi_table")
     iterator = setup_segmentation_iterator(
