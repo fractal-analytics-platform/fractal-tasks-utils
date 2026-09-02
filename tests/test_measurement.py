@@ -49,6 +49,22 @@ def ome_zarr_with_roi_table(tmp_path):
     return zarr_path
 
 
+@pytest.fixture
+def ome_zarr_3d(tmp_path):
+    """Minimal 2-channel 3D ome-Zarr with a derived label image."""
+    zarr_path = str(tmp_path / "test3d.zarr")
+    ome_zarr = create_empty_ome_zarr(
+        store=zarr_path,
+        shape=(2, 4, 32, 32),
+        pixelsize=0.5,
+        z_spacing=1.0,
+        channels_meta=["DAPI", "GFP"],
+        axes_names=["c", "z", "y", "x"],
+    )
+    ome_zarr.derive_label(name="nuclei", overwrite=True)
+    return zarr_path
+
+
 def test_measurement_module_is_importable():
     assert fractal_tasks_utils.measurement is not None
 
@@ -92,6 +108,36 @@ def test_setup_measurement_iterator_default(ome_zarr_2d):
     iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei")
     assert isinstance(iterator, FeatureExtractorIterator)
     assert len(iterator.rois) > 0
+
+
+def test_setup_measurement_iterator_default_axes_3d(ome_zarr_3d):
+    """The default on 3D data is one whole volume per t."""
+    iterator = setup_measurement_iterator(ome_zarr_3d, "nuclei")
+    assert len(iterator.rois) == 1
+    img_chunk, _lbl_chunk, _roi = next(iter(iterator.iter_as_numpy()))
+    assert img_chunk.shape == (32, 32, 4, 2)
+
+
+def test_setup_measurement_iterator_by_yx_on_3d(ome_zarr_3d):
+    """An explicit axes_order/iterate_by pair reaches the iterator."""
+    iterator = setup_measurement_iterator(
+        ome_zarr_3d, "nuclei", axes_order="yxzc", iterate_by="by_yx"
+    )
+    assert len(iterator.rois) == 4
+    img_chunk, _lbl_chunk, _roi = next(iter(iterator.iter_as_numpy()))
+    assert img_chunk.shape == (32, 32, 1, 2)
+
+
+def test_setup_measurement_iterator_yxzc_on_2d(ome_zarr_2d):
+    """A 2/3D-agnostic function can ask for "yxzc" even without a z axis."""
+    iterator = setup_measurement_iterator(ome_zarr_2d, "nuclei", axes_order="yxzc")
+    img_chunk, _lbl_chunk, _roi = next(iter(iterator.iter_as_numpy()))
+    assert img_chunk.shape == (64, 64, 1, 2)
+
+
+def test_setup_measurement_iterator_invalid_axes_order(ome_zarr_2d):
+    with pytest.raises(ValueError, match="unknown axes"):
+        setup_measurement_iterator(ome_zarr_2d, "nuclei", axes_order="abc")
 
 
 def test_setup_measurement_iterator_channel_selection(ome_zarr_2d):

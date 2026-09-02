@@ -9,6 +9,13 @@ from ngio import ChannelSelectionModel, Roi, open_ome_zarr_container
 from ngio.iterators import FeatureExtractorIterator
 from ngio.transforms import ZoomTransform
 
+from fractal_tasks_utils._iteration import (
+    IterateBy,
+    apply_iterate_by,
+    resolve_iterate_by,
+    validate_axes_order,
+)
+
 
 def join_tables(
     tables: list[dict[str, list]], index_key: str = "label"
@@ -41,6 +48,8 @@ def setup_measurement_iterator(
     level_path: str | None = None,
     channels: list[ChannelSelectionModel] | None = None,
     roi_table_names: list[str] | None = None,
+    axes_order: str | None = None,
+    iterate_by: IterateBy | None = None,
 ) -> FeatureExtractorIterator:
     """Set up a FeatureExtractorIterator for measurement tasks.
 
@@ -53,6 +62,16 @@ def setup_measurement_iterator(
             to include. If None, all channels are included.
         roi_table_names: Optional list of ROI table names to include in the
             iterator. If None, no table is included.
+        axes_order: Axes order of the patches handed to the measurement
+            function. If not provided, "yxzc" is used for 3D images and
+            "yxc" for 2D ones. An axis the image does not have is added as a
+            singleton, so a function that always wants a 4D patch can ask for
+            "yxzc" regardless of whether the data is 2D or 3D.
+        iterate_by: How much of the image a single iteration covers.
+            "by_zyx" hands over the full z/y/x extent, "by_yx" hands over one
+            z plane at a time. If not provided, it is inferred from
+            `axes_order`: an order carrying "z" asks for "by_zyx", one without
+            it asks for "by_yx".
 
     Returns:
         A FeatureExtractorIterator that yields (image, label, roi)
@@ -74,7 +93,14 @@ def setup_measurement_iterator(
     logger.info(f"{label_image=}")
 
     # For 2D images, squeeze the singleton z-axis (yxc); keep z for 3D (yxzc)
-    axes_order = "yxc" if image.is_2d else "yxzc"
+    if axes_order is None:
+        axes_order = "yxc" if image.is_2d else "yxzc"
+    else:
+        validate_axes_order(axes_order)
+    iterate_by = resolve_iterate_by(
+        axes_order=axes_order, iterate_by=iterate_by, is_3d=not image.is_2d
+    )
+    logger.info(f"Measuring using {axes_order=} {iterate_by=}")
 
     # The ZoomTransform will handle any necessary rescaling of the label image to
     # match the image resolution (if not necessary, it will be a no-op)
@@ -91,8 +117,8 @@ def setup_measurement_iterator(
         channel_selection=channels,
         label_transforms=[label_zoom_transform],
     )
-    # by_zyx(strict=False): works for both 2D and 3D data
-    iterator = iterator.by_zyx(strict=False)
+    # Split the ROIs into the requested iteration unit
+    iterator = apply_iterate_by(iterator, iterate_by)
 
     tables = roi_table_names if roi_table_names is not None else []
     for table_name in tables:
@@ -117,8 +143,8 @@ def compute_measurement(
         measurement_func: Consumer-provided extraction function with signature
             ``(image, label, roi) -> dict``. The dict keys become DataFrame
             columns; values must be lists of equal length.
-        iterator: A `FeatureExtractorIterator` (with `.by_zyx` already applied)
-            that yields ``(image, label, roi)`` tuples.
+        iterator: A `FeatureExtractorIterator` (already split into its
+            iteration unit) that yields ``(image, label, roi)`` tuples.
     Returns:
         A DataFrame with all per-ROI results concatenated, indexed by "label".
     """
