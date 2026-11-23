@@ -53,13 +53,15 @@ def label_2d():
 
 
 def test_gaussian_blur_axes_yx(image_2d):
-    result = GaussianBlurTransform(sigma_xy=1.0).apply(image_2d, axes=("y", "x"))
+    result = GaussianBlurTransform(sigma_x=1.0, sigma_y=1.0).apply(
+        image_2d, axes=("y", "x")
+    )
     assert result.shape == image_2d.shape
     assert not np.array_equal(result, image_2d)
 
 
 def test_gaussian_blur_axes_zyx(image_3d):
-    result = GaussianBlurTransform(sigma_xy=1.0, sigma_z=1.0).apply(
+    result = GaussianBlurTransform(sigma_x=1.0, sigma_y=1.0, sigma_z=1.0).apply(
         image_3d, axes=("z", "y", "x")
     )
     assert result.shape == image_3d.shape
@@ -67,7 +69,7 @@ def test_gaussian_blur_axes_zyx(image_3d):
 
 
 def test_gaussian_blur_axes_czyx(image_4d):
-    result = GaussianBlurTransform(sigma_xy=1.0, sigma_z=1.0).apply(
+    result = GaussianBlurTransform(sigma_x=1.0, sigma_y=1.0, sigma_z=1.0).apply(
         image_4d, axes=("c", "z", "y", "x")
     )
     assert result.shape == image_4d.shape
@@ -76,7 +78,9 @@ def test_gaussian_blur_axes_czyx(image_4d):
 def test_gaussian_blur_axes_cyx():
     rng = np.random.default_rng(0)
     image_cyx = rng.random((3, 16, 16)).astype(np.float32)
-    result = GaussianBlurTransform(sigma_xy=1.0).apply(image_cyx, axes=("c", "y", "x"))
+    result = GaussianBlurTransform(sigma_x=1.0, sigma_y=1.0).apply(
+        image_cyx, axes=("c", "y", "x")
+    )
     assert result.shape == image_cyx.shape
     assert not np.array_equal(result, image_cyx)
 
@@ -84,9 +88,21 @@ def test_gaussian_blur_axes_cyx():
 def test_gaussian_blur_preserves_range():
     rng = np.random.default_rng(0)
     image = (rng.random((16, 16)) * 100 + 100).astype(np.uint16)
-    result = GaussianBlurTransform(sigma_xy=1.0).apply(image, axes=("y", "x"))
+    result = GaussianBlurTransform(sigma_x=1.0, sigma_y=1.0).apply(
+        image, axes=("y", "x")
+    )
     # preserve_range=True: output stays in original scale, not normalized to [0, 1]
     assert result.max() > 1.0
+
+
+def test_gaussian_blur_anisotropic():
+    image = np.zeros((33, 33), dtype=np.float32)
+    image[16, 16] = 1.0
+    result = GaussianBlurTransform(sigma_x=0.5, sigma_y=3.0).apply(
+        image, axes=("y", "x")
+    )
+    # Blur spreads further along y than along x
+    assert result[16 + 3, 16] > result[16, 16 + 3]
 
 
 def test_gaussian_blur_mismatched_axes_raises():
@@ -103,7 +119,7 @@ def test_gaussian_blur_mismatched_axes_raises():
 def test_gaussian_blur_config_to_transform():
     t = GaussianBlurConfig(sigma_xy=3.0, sigma_z=1.5).to_transform()
     assert isinstance(t, GaussianBlurTransform)
-    assert t.sigma_xy == 3.0
+    assert t.sigma_x == t.sigma_y == 3.0
     assert t.sigma_z == 1.5
 
 
