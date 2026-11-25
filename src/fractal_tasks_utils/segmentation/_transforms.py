@@ -3,6 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from fractal_tasks_utils.transforms import (
+    AnisotropicGaussianBlurConfig,
     GaussianBlurConfig,
     HistogramEqualizationConfig,
     MedianFilterConfig,
@@ -10,7 +11,10 @@ from fractal_tasks_utils.transforms import (
 )
 
 PreProcess = Annotated[
-    GaussianBlurConfig | MedianFilterConfig | HistogramEqualizationConfig,
+    GaussianBlurConfig
+    | AnisotropicGaussianBlurConfig
+    | MedianFilterConfig
+    | HistogramEqualizationConfig,
     Field(discriminator="type"),
 ]
 

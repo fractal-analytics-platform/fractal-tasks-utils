@@ -7,7 +7,7 @@ Requires `ngio >=1.1,<1.2` (since 0.2.0; 0.1.x required `ngio <0.6`).
 ## Modules
 
 - **segmentation** — utilities for running segmentation models over OME-Zarr images (`compute_segmentation`, `setup_segmentation_iterator`, `IteratorConfig`, `MaskingConfig`)
-- **transforms** — standard image transforms (`GaussianBlurConfig`, `MedianFilterConfig`, `HistogramEqualizationConfig`, `SizeFilterConfig`)
+- **transforms** — standard image transforms (`GaussianBlurConfig`, `AnisotropicGaussianBlurConfig`, `MedianFilterConfig`, `HistogramEqualizationConfig`, `SizeFilterConfig`)
 - **measurement** — utilities for computing measurements (WIP)
 
 ## Migrating to 0.2.0

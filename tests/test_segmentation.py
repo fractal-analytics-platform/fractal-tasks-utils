@@ -20,6 +20,7 @@ from fractal_tasks_utils.segmentation._models import (
 )
 from fractal_tasks_utils.segmentation._transforms import SegmentationTransformConfig
 from fractal_tasks_utils.transforms._transforms import (
+    AnisotropicGaussianBlurConfig,
     GaussianBlurConfig,
     GaussianBlurTransform,
     MedianFilterConfig,
@@ -161,7 +162,7 @@ def test_segmentation_transform_config_pre_process_round_trip():
     result = cfg.to_pre_transforms()
     assert len(result) == 1
     assert isinstance(result[0], GaussianBlurTransform)
-    assert result[0].sigma_xy == 2.0
+    assert result[0].sigma_x == result[0].sigma_y == 2.0
 
 
 def test_segmentation_transform_config_post_process_round_trip():
@@ -170,6 +171,24 @@ def test_segmentation_transform_config_post_process_round_trip():
     assert len(result) == 1
     assert isinstance(result[0], SizeFilterTransform)
     assert result[0].min_size == 50
+
+
+def test_segmentation_transform_config_anisotropic_discriminator():
+    cfg = SegmentationTransformConfig.model_validate(
+        {
+            "pre_process": [
+                {
+                    "type": "Anisotropic Gaussian Blur Filter",
+                    "sigma_x": 1.0,
+                    "sigma_y": 2.0,
+                }
+            ]
+        }
+    )
+    assert isinstance(cfg.pre_process[0], AnisotropicGaussianBlurConfig)
+    (transform,) = cfg.to_pre_transforms()
+    assert isinstance(transform, GaussianBlurTransform)
+    assert (transform.sigma_x, transform.sigma_y) == (1.0, 2.0)
 
 
 def test_segmentation_transform_config_mixed_pre_process():

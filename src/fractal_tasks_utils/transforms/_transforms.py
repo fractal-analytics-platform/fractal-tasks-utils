@@ -21,14 +21,16 @@ class GaussianBlurTransform:
 
     def __init__(
         self,
-        sigma_xy: float = 2.0,
+        sigma_x: float = 2.0,
+        sigma_y: float = 2.0,
         sigma_z: float | None = None,
         preserve_range: bool = True,
         boundary_condition: BoundaryCondition = "nearest",
         cval: float = 0,
         truncate: float = 4.0,
     ):
-        self.sigma_xy = sigma_xy
+        self.sigma_x = sigma_x
+        self.sigma_y = sigma_y
         self.sigma_z = sigma_z if sigma_z is not None else 0
         self.preserve_range = preserve_range
         self.boundary_condition = boundary_condition
@@ -59,8 +61,10 @@ class GaussianBlurTransform:
             )
         sigma = []
         for ax in axes:
-            if ax in ("x", "y"):
-                sigma.append(self.sigma_xy)
+            if ax == "x":
+                sigma.append(self.sigma_x)
+            elif ax == "y":
+                sigma.append(self.sigma_y)
             elif ax == "z":
                 sigma.append(self.sigma_z)
             else:
@@ -123,7 +127,39 @@ class GaussianBlurConfig(BaseModel):
 
     def to_transform(self) -> GaussianBlurTransform:
         """Convert the configuration to a GaussianBlurTransform instance."""
-        return GaussianBlurTransform(sigma_xy=self.sigma_xy, sigma_z=self.sigma_z)
+        return GaussianBlurTransform(
+            sigma_x=self.sigma_xy, sigma_y=self.sigma_xy, sigma_z=self.sigma_z
+        )
+
+
+class AnisotropicGaussianBlurConfig(BaseModel):
+    """Configuration for anisotropic Gaussian blur transformation."""
+
+    type: Literal["Anisotropic Gaussian Blur Filter"] = (
+        "Anisotropic Gaussian Blur Filter"
+    )
+    """
+    Transformation type identifier for anisotropic Gaussian blur filtering.
+    """
+    sigma_x: float = Field(default=2.0, gt=0, title="Sigma X")
+    """
+    Standard deviation for Gaussian kernel along the X axis.
+    """
+    sigma_y: float = Field(default=2.0, gt=0, title="Sigma Y")
+    """
+    Standard deviation for Gaussian kernel along the Y axis.
+    """
+    sigma_z: float | None = None
+    """
+    Standard deviation for Gaussian kernel in Z axis.
+    If not specified, no blurring is applied in Z axis.
+    """
+
+    def to_transform(self) -> GaussianBlurTransform:
+        """Convert the configuration to a GaussianBlurTransform instance."""
+        return GaussianBlurTransform(
+            sigma_x=self.sigma_x, sigma_y=self.sigma_y, sigma_z=self.sigma_z
+        )
 
 
 class MedianFilterTransform:
@@ -365,7 +401,10 @@ class SizeFilterConfig(BaseModel):
 
 
 PreProcess = Annotated[
-    GaussianBlurConfig | MedianFilterConfig | HistogramEqualizationConfig,
+    GaussianBlurConfig
+    | AnisotropicGaussianBlurConfig
+    | MedianFilterConfig
+    | HistogramEqualizationConfig,
     Field(discriminator="type"),
 ]
 
